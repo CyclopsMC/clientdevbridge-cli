@@ -1,0 +1,670 @@
+{
+  "recordedAt": "2026-08-29T20:22:45.232Z",
+  "hello": {
+    "jsonrpc": "2.0",
+    "method": "hello",
+    "params": {
+      "protocol": 1,
+      "mcVersion": "1.21.1",
+      "loader": "fabric",
+      "clientDevBridgeVersion": "1.0.0",
+      "evalEnabled": true,
+      "mods": [
+        "cdbconsumer",
+        "clientdevbridge",
+        "fabric-api",
+        "fabric-api-base",
+        "fabric-api-lookup-api-v1",
+        "fabric-biome-api-v1",
+        "fabric-block-api-v1",
+        "fabric-block-view-api-v2",
+        "fabric-blockrenderlayer-v1",
+        "fabric-client-tags-api-v1",
+        "fabric-command-api-v1",
+        "fabric-command-api-v2",
+        "fabric-commands-v0",
+        "fabric-content-registries-v0",
+        "fabric-convention-tags-v1",
+        "fabric-convention-tags-v2",
+        "fabric-crash-report-info-v1",
+        "fabric-data-attachment-api-v1",
+        "fabric-data-generation-api-v1",
+        "fabric-dimensions-v1",
+        "fabric-entity-events-v1",
+        "fabric-events-interaction-v0",
+        "fabric-game-rule-api-v1",
+        "fabric-gametest-api-v1",
+        "fabric-item-api-v1",
+        "fabric-item-group-api-v1",
+        "fabric-key-binding-api-v1",
+        "fabric-keybindings-v0",
+        "fabric-lifecycle-events-v1",
+        "fabric-loot-api-v2",
+        "fabric-loot-api-v3",
+        "fabric-message-api-v1",
+        "fabric-model-loading-api-v1",
+        "fabric-networking-api-v1",
+        "fabric-object-builder-api-v1",
+        "fabric-particles-v1",
+        "fabric-recipe-api-v1",
+        "fabric-registry-sync-v0",
+        "fabric-renderer-api-v1",
+        "fabric-renderer-indigo",
+        "fabric-renderer-registries-v1",
+        "fabric-rendering-data-attachment-v1",
+        "fabric-rendering-fluids-v1",
+        "fabric-rendering-v0",
+        "fabric-rendering-v1",
+        "fabric-resource-conditions-api-v1",
+        "fabric-resource-loader-v0",
+        "fabric-screen-api-v1",
+        "fabric-screen-handler-api-v1",
+        "fabric-sound-api-v1",
+        "fabric-transfer-api-v1",
+        "fabric-transitive-access-wideners-v1",
+        "fabricloader",
+        "java",
+        "minecraft",
+        "mixinextras"
+      ]
+    }
+  },
+  "calls": [
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "status",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "inWorld": true,
+          "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
+          "tick": 233,
+          "fps": 1,
+          "dimension": "minecraft:overworld",
+          "player": {
+            "pos": [
+              0.5,
+              4,
+              4.5
+            ],
+            "yaw": 0,
+            "pitch": 30
+          },
+          "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "guiScale": 2,
+          "guiWidth": 427,
+          "guiHeight": 240,
+          "pixelWidth": 854,
+          "pixelHeight": 480
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "wait.ticks",
+        "params": {
+          "ticks": 2
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "tick": 235
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "log.tail",
+        "params": {
+          "lines": 2,
+          "level": "warn"
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "lines": [
+            "[ERROR] [net.minecraft.client.sounds.SoundEngine] Error starting SoundSystem. Turning off sounds & music | java.lang.IllegalStateException: Failed to open OpenAL device",
+            "[WARN] [net.minecraft.client.renderer.ShaderInstance] Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program."
+          ],
+          "level": "warn",
+          "buffered": 1440
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "screen.snapshot",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "guiScale": 2,
+          "guiWidth": 427,
+          "guiHeight": 240,
+          "pixelWidth": 854,
+          "pixelHeight": 480,
+          "mouse": [
+            0,
+            0
+          ],
+          "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
+          "title": "Crafting",
+          "root": {
+            "path": "/root",
+            "type": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 427,
+              "h": 240
+            },
+            "message": "Crafting",
+            "narration": null,
+            "visible": true,
+            "active": true,
+            "focused": false,
+            "hovered": false,
+            "value": null,
+            "extra": {},
+            "children": [
+              {
+                "path": "/root/children[0]",
+                "type": "net.minecraft.client.gui.components.ImageButton",
+                "bounds": {
+                  "x": 130,
+                  "y": 71,
+                  "w": 20,
+                  "h": 18
+                },
+                "message": "",
+                "narration": " button Left click to activate",
+                "visible": true,
+                "active": true,
+                "focused": false,
+                "hovered": false,
+                "value": null,
+                "extra": {
+                  "component": "\"\"",
+                  "kind": "imageButton"
+                },
+                "children": []
+              },
+              {
+                "path": "/root/children[1]",
+                "type": "net.minecraft.client.gui.screens.recipebook.RecipeBookComponent",
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "w": 0,
+                  "h": 0
+                },
+                "message": null,
+                "narration": null,
+                "visible": true,
+                "active": true,
+                "focused": false,
+                "hovered": false,
+                "value": null,
+                "extra": {},
+                "children": []
+              }
+            ]
+          },
+          "truncated": false,
+          "focused": null,
+          "hovered": null,
+          "container": {
+            "menuClass": "net.minecraft.world.inventory.CraftingMenu",
+            "leftPos": 125,
+            "topPos": 37,
+            "imageWidth": 176,
+            "imageHeight": 166,
+            "carried": {
+              "item": null,
+              "count": 0
+            },
+            "slots": [
+              {
+                "index": 0,
+                "item": null,
+                "count": 0,
+                "x": 249,
+                "y": 72,
+                "hovered": false
+              },
+              {
+                "index": 1,
+                "item": null,
+                "count": 0,
+                "x": 155,
+                "y": 54,
+                "hovered": false
+              },
+              {
+                "index": 2,
+                "item": null,
+                "count": 0,
+                "x": 173,
+                "y": 54,
+                "hovered": false
+              },
+              {
+                "index": 3,
+                "item": null,
+                "count": 0,
+                "x": 191,
+                "y": 54,
+                "hovered": false
+              },
+              {
+                "index": 4,
+                "item": null,
+                "count": 0,
+                "x": 155,
+                "y": 72,
+                "hovered": false
+              },
+              {
+                "index": 5,
+                "item": null,
+                "count": 0,
+                "x": 173,
+                "y": 72,
+                "hovered": false
+              },
+              {
+                "index": 6,
+                "item": null,
+                "count": 0,
+                "x": 191,
+                "y": 72,
+                "hovered": false
+              },
+              {
+                "index": 7,
+                "item": null,
+                "count": 0,
+                "x": 155,
+                "y": 90,
+                "hovered": false
+              },
+              {
+                "index": 8,
+                "item": null,
+                "count": 0,
+                "x": 173,
+                "y": 90,
+                "hovered": false
+              },
+              {
+                "index": 9,
+                "item": null,
+                "count": 0,
+                "x": 191,
+                "y": 90,
+                "hovered": false
+              },
+              {
+                "index": 10,
+                "item": null,
+                "count": 0,
+                "x": 133,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 11,
+                "item": null,
+                "count": 0,
+                "x": 151,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 12,
+                "item": null,
+                "count": 0,
+                "x": 169,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 13,
+                "item": null,
+                "count": 0,
+                "x": 187,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 14,
+                "item": null,
+                "count": 0,
+                "x": 205,
+                "y": 121,
+                "hovered": true
+              },
+              {
+                "index": 15,
+                "item": null,
+                "count": 0,
+                "x": 223,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 16,
+                "item": null,
+                "count": 0,
+                "x": 241,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 17,
+                "item": null,
+                "count": 0,
+                "x": 259,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 18,
+                "item": null,
+                "count": 0,
+                "x": 277,
+                "y": 121,
+                "hovered": false
+              },
+              {
+                "index": 19,
+                "item": null,
+                "count": 0,
+                "x": 133,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 20,
+                "item": null,
+                "count": 0,
+                "x": 151,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 21,
+                "item": null,
+                "count": 0,
+                "x": 169,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 22,
+                "item": null,
+                "count": 0,
+                "x": 187,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 23,
+                "item": null,
+                "count": 0,
+                "x": 205,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 24,
+                "item": null,
+                "count": 0,
+                "x": 223,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 25,
+                "item": null,
+                "count": 0,
+                "x": 241,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 26,
+                "item": null,
+                "count": 0,
+                "x": 259,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 27,
+                "item": null,
+                "count": 0,
+                "x": 277,
+                "y": 139,
+                "hovered": false
+              },
+              {
+                "index": 28,
+                "item": null,
+                "count": 0,
+                "x": 133,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 29,
+                "item": null,
+                "count": 0,
+                "x": 151,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 30,
+                "item": null,
+                "count": 0,
+                "x": 169,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 31,
+                "item": null,
+                "count": 0,
+                "x": 187,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 32,
+                "item": null,
+                "count": 0,
+                "x": 205,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 33,
+                "item": null,
+                "count": 0,
+                "x": 223,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 34,
+                "item": null,
+                "count": 0,
+                "x": 241,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 35,
+                "item": null,
+                "count": 0,
+                "x": 259,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 36,
+                "item": null,
+                "count": 0,
+                "x": 277,
+                "y": 157,
+                "hovered": false
+              },
+              {
+                "index": 37,
+                "item": null,
+                "count": 0,
+                "x": 133,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 38,
+                "item": null,
+                "count": 0,
+                "x": 151,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 39,
+                "item": null,
+                "count": 0,
+                "x": 169,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 40,
+                "item": null,
+                "count": 0,
+                "x": 187,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 41,
+                "item": null,
+                "count": 0,
+                "x": 205,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 42,
+                "item": null,
+                "count": 0,
+                "x": 223,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 43,
+                "item": null,
+                "count": 0,
+                "x": 241,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 44,
+                "item": null,
+                "count": 0,
+                "x": 259,
+                "y": 179,
+                "hovered": false
+              },
+              {
+                "index": 45,
+                "item": null,
+                "count": 0,
+                "x": 277,
+                "y": 179,
+                "hovered": false
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "nope.does.not.exist",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "error": {
+          "code": -32601,
+          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "wait.ticks",
+        "params": {
+          "ticks": -1
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "error": {
+          "code": -32602,
+          "message": "Parameter 'ticks' must not be negative, but was -1"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "wait.ticks",
+        "params": {
+          "notTicks": 1
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "error": {
+          "code": -32602,
+          "message": "Missing required parameter 'ticks'"
+        }
+      }
+    }
+  ]
+}

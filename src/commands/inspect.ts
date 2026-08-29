@@ -113,23 +113,6 @@ export async function runLogs(global: GlobalOptions, options: LogsOptions): Prom
   });
 }
 
-export async function runWait(
-  global: GlobalOptions,
-  options: { ticks?: string | undefined },
-): Promise<void> {
-  await withClient(global, async ({ client }) => {
-    const ticks = Number(options.ticks ?? '1');
-    const result = await client.call<Record<string, unknown>>('wait.ticks', { ticks });
-    if (global.json) {
-      printJson(result);
-      return;
-    }
-    if (!global.quiet) {
-      line(`Waited ${ticks} tick${ticks === 1 ? '' : 's'} (now at tick ${result['tick']}).`);
-    }
-  });
-}
-
 export function screenshotDirectory(projectDir: string): string {
   return path.join(projectDir, '.clientdevbridge', 'screenshots');
 }

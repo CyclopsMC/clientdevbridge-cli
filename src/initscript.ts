@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { coordinate } from './artifacts.js';
+import { coordinate, GROOVY_DEPENDENCY } from './artifacts.js';
 import type { Loader } from './detect.js';
 
 export interface InitScriptOptions {
@@ -14,6 +14,8 @@ export interface InitScriptOptions {
   readonly width: number;
   readonly height: number;
   readonly jdwpPort: number | null;
+  /** The consumer project root, so the mod can resolve committed world templates. */
+  readonly projectDir: string;
   /** Extra `-D` properties, exposed for tests and for `--gradle-args` style overrides. */
   readonly extraJvmArgs?: readonly string[];
 }
@@ -36,6 +38,7 @@ export function renderInitScript(options: InitScriptOptions): string {
   const jvmArgs = [
     '-Dclientdevbridge.enabled=true',
     `-Dclientdevbridge.port=${options.port}`,
+    `-Dclientdevbridge.projectDir=${options.projectDir}`,
     ...(options.evalEnabled ? ['-Dclientdevbridge.eval=true'] : []),
     ...(options.jdwpPort === null
       ? []
@@ -58,6 +61,10 @@ export function renderInitScript(options: InitScriptOptions): string {
 // determinism settings the screenshot comparisons depend on.
 
 def clientDevBridgeDependency = ${groovyString(dependency)}
+// The eval escape hatch reaches Groovy through javax.script. It is added here rather than left to
+// transitive resolution because the Cyclops publishing convention emits artifact-only POMs, so the
+// published module carries no dependency metadata for a consumer to resolve.
+def clientDevBridgeGroovy = ${groovyString(GROOVY_DEPENDENCY)}
 def clientDevBridgeJvmArgs = [
 ${jvmArgs.map((arg) => `        ${groovyString(arg)}`).join(',\n')}
 ]
@@ -84,14 +91,19 @@ allprojects { project ->
     // its own configuration rather than a plain runtimeOnly.
     project.plugins.withId('fabric-loom') {
         project.dependencies.add('modLocalRuntime', clientDevBridgeDependency)
+        // Groovy is a plain library, not a mod, so it must not go through Loom's remapping.
+        project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
     }
     // NeoGradle and ModDevGradle discover mods from the runtime classpath directly.
     project.plugins.withId('net.neoforged.gradle.userdev') {
         project.dependencies.add('runtimeOnly', clientDevBridgeDependency)
+        project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
     }
     project.plugins.withId('net.neoforged.moddev') {
-        def configuration = project.configurations.findByName('additionalRuntimeClasspath')
-        project.dependencies.add(configuration != null ? 'additionalRuntimeClasspath' : 'runtimeOnly', clientDevBridgeDependency)
+        def configuration = project.configurations.findByName('additionalRuntimeClasspath') != null
+                ? 'additionalRuntimeClasspath' : 'runtimeOnly'
+        project.dependencies.add(configuration, clientDevBridgeDependency)
+        project.dependencies.add(configuration, clientDevBridgeGroovy)
     }
 
     project.tasks.matching { it.name == 'runClient' }.configureEach { task ->

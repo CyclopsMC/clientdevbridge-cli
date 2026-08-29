@@ -3,8 +3,37 @@ import { Command } from 'commander';
 import { CliError, EXIT_OK, EXIT_PROTOCOL, EXIT_SESSION, ProtocolError } from './errors.js';
 import type { GlobalOptions } from './commands/context.js';
 import { runRestart, runStart, runStatus, runStop, START_DEFAULTS } from './commands/lifecycle.js';
-import { runLogs, runScreenshot, runWait } from './commands/inspect.js';
+import { runLogs, runScreenshot } from './commands/inspect.js';
 import { runDoctor } from './commands/doctor.js';
+import {
+  runBlock,
+  runCommand,
+  runGive,
+  runInventory,
+  runLook,
+  runSetblock,
+  runTeleport,
+  runWorldLeave,
+  runWorldList,
+  runWorldLoad,
+  runWorldReset,
+} from './commands/world.js';
+import {
+  runClick,
+  runCloseScreen,
+  runDrag,
+  runEval,
+  runHoldKey,
+  runKey,
+  runMouseMove,
+  runOpenGui,
+  runScroll,
+  runType,
+  runWaitFor,
+} from './commands/input.js';
+import { runFind, runInspectGui, runSnapshot, runTooltip } from './commands/snapshot.js';
+import { runCompare, runResize } from './commands/compare.js';
+import { runHotswap } from './commands/hotswap.js';
 
 const program = new Command();
 
@@ -92,20 +121,229 @@ program
 
 program
   .command('wait')
-  .description('wait for game ticks to pass')
-  .option('--ticks <n>', 'number of client ticks to wait', '1')
-  .action(async (options) => runWait(globals(), options));
+  .description('wait for ticks to pass, or for the game to reach a state')
+  .option('--ticks <n>', 'wait this many client ticks')
+  .option('--screen <name>', 'wait until this screen is open (simple or fully-qualified class name)')
+  .option('--expr <groovy>', 'wait until this expression is true')
+  .option('--chunk <x,y,z>', 'wait until the chunk containing this block is loaded')
+  .option('--in-world', 'wait until a world is joined', false)
+  .option('--timeout <ms>', 'give up after this many milliseconds', '10000')
+  .action(async (options) => runWaitFor(globals(), options));
+
+program
+  .command('snapshot')
+  .description('print the widget tree of the open screen as an outline')
+  .option('--include-hidden', 'also list invisible widgets and pure decorations', false)
+  .option('--max-depth <n>', 'stop descending past this depth')
+  .action(async (options) => runSnapshot(globals(), options));
+
+program
+  .command('find <text>')
+  .description('find widgets by label, type or path, and print where to click them')
+  .option('--type <type>', 'only widgets whose class name contains this')
+  .action(async (text, options) => runFind(globals(), text, options));
+
+program
+  .command('click')
+  .description('click a point or a widget')
+  .option('--at <x,y>', 'click this point')
+  .option('--widget <text-or-path>', 'click the centre of the matching widget')
+  .option('--button <n>', '0 left, 1 right, 2 middle', '0')
+  .option('--space <space>', 'coordinate space for --at: gui or pixel', 'gui')
+  .action(async (options) => runClick(globals(), options));
+
+program
+  .command('type <text>')
+  .description('type text into the focused widget')
+  .action(async (text) => runType(globals(), text));
+
+program
+  .command('key <key>')
+  .description("press a key, e.g. 'E', 'ESCAPE' or 'GLFW_KEY_F3'")
+  .option('--action <action>', 'tap, press or release', 'tap')
+  .option('--modifiers <bits>', 'GLFW modifier bits: 1 shift, 2 ctrl, 4 alt')
+  .action(async (key, options) => runKey(globals(), key, options));
+
+program
+  .command('hold-key <key>')
+  .description('hold a bound key down for a number of ticks, for movement')
+  .requiredOption('--ticks <n>', 'how many client ticks to hold it')
+  .action(async (key, options) => runHoldKey(globals(), key, options));
+
+program
+  .command('mouse-move <at>')
+  .description("move the mouse to 'x,y'")
+  .option('--space <space>', 'gui or pixel', 'gui')
+  .action(async (at, options) => runMouseMove(globals(), at, options));
+
+program
+  .command('scroll')
+  .description('scroll at a point')
+  .requiredOption('--at <x,y>', 'where to scroll')
+  .requiredOption('--dy <amount>', 'vertical scroll amount')
+  .option('--dx <amount>', 'horizontal scroll amount', '0')
+  .option('--space <space>', 'gui or pixel', 'gui')
+  .action(async (options) => runScroll(globals(), options));
+
+program
+  .command('drag')
+  .description('press, move and release, for sliders and item dragging')
+  .requiredOption('--from <x,y>', 'where the drag starts')
+  .requiredOption('--to <x,y>', 'where it ends')
+  .option('--button <n>', '0 left, 1 right', '0')
+  .option('--steps <n>', 'how many intermediate move events to send', '8')
+  .option('--space <space>', 'gui or pixel', 'gui')
+  .action(async (options) => runDrag(globals(), options));
+
+program
+  .command('tooltip')
+  .description('read the tooltip shown at a point or over a widget')
+  .option('--at <x,y>', 'where to hover')
+  .option('--widget <text-or-path>', 'hover the matching widget')
+  .action(async (options) => runTooltip(globals(), options));
+
+program
+  .command('open-gui <x> <y> <z>')
+  .description("right-click a block to open its GUI")
+  .option('--no-approach', 'do not teleport the player within reach first')
+  .action(async (x, y, z, options) => runOpenGui(globals(), x, y, z, options));
+
+program
+  .command('close-screen')
+  .description('close the open screen')
+  .action(async () => runCloseScreen(globals()));
+
+program
+  .command('inspect-gui <x> <y> <z>')
+  .description('open a block GUI, print its outline, and write a screenshot — the usual starting point')
+  .option('--no-approach', 'do not teleport the player within reach first')
+  .option('--name <name>', 'screenshot file name')
+  .action(async (x, y, z, options) => runInspectGui(globals(), x, y, z, options));
+
+program
+  .command('world-reset')
+  .description('delete and recreate the test world: creative superflat, no daylight cycle, no mobs')
+  .option('--name <name>', 'world folder name')
+  .option('--template <name>', 'copy clientdevbridge/templates/<name> instead of generating one')
+  .option('--setup <command>', 'run this command once the world is ready')
+  .action(async (options) => runWorldReset(globals(), options));
+
+program
+  .command('world-load <name>')
+  .description('load an existing singleplayer world')
+  .action(async (name) => runWorldLoad(globals(), name));
+
+program
+  .command('world-leave')
+  .description('leave the current world')
+  .action(async () => runWorldLeave(globals()));
+
+program
+  .command('world-list')
+  .description('list the singleplayer worlds in the run directory')
+  .action(async () => runWorldList(globals()));
+
+program
+  .command('command <command>')
+  .description('run a Minecraft command on the integrated server and print its output')
+  .action(async (command) => runCommand(globals(), command));
+
+program
+  .command('block <x> <y> <z>')
+  .description('describe the block at a position')
+  .option('--nbt', 'include the block entity NBT the client knows about', false)
+  .action(async (x, y, z, options) => runBlock(globals(), x, y, z, options));
+
+program
+  .command('setblock <x> <y> <z> <block>')
+  .description('place a block')
+  .action(async (x, y, z, block) => runSetblock(globals(), x, y, z, block));
+
+program
+  .command('give <item> [count]')
+  .description('give the player an item')
+  .action(async (item, count) => runGive(globals(), item, count ?? '1'));
+
+program
+  .command('teleport <x> <y> <z>')
+  .description('teleport the player')
+  .option('--yaw <degrees>', 'facing yaw')
+  .option('--pitch <degrees>', 'facing pitch')
+  .action(async (x, y, z, options) => runTeleport(globals(), x, y, z, options));
+
+program
+  .command('look')
+  .description('point the camera')
+  .option('--at <x,y,z>', 'look at this block position')
+  .option('--yaw <degrees>', 'set yaw')
+  .option('--pitch <degrees>', 'set pitch')
+  .action(async (options) => runLook(globals(), options));
+
+program
+  .command('inventory')
+  .description("list the player's inventory")
+  .action(async () => runInventory(globals()));
+
+program
+  .command('compare <name>')
+  .description('compare a screenshot against a committed golden image')
+  .option('--region <x,y,w,h>', 'compare only this rectangle')
+  .option('--space <space>', 'coordinate space for --region: gui or pixel', 'gui')
+  .option('--threshold <pct>', 'percentage of differing pixels still counted as a match', '0.1')
+  .option('--pixel-threshold <0-1>', 'per-pixel colour tolerance passed to pixelmatch', '0.1')
+  .option('--after-ticks <n>', 'wait this many ticks before capturing')
+  .option('--renderer <name>', 'golden set to use, instead of detecting it from GL_RENDERER')
+  .option('--update', 'write the current screenshot as the golden image instead of comparing', false)
+  .action(async (name, options) => runCompare(globals(), name, options));
+
+program
+  .command('resize')
+  .description('set the window size and GUI scale, for reproducible screenshots')
+  .requiredOption('--width <px>', 'window width')
+  .requiredOption('--height <px>', 'window height')
+  .option('--gui-scale <n>', 'fixed GUI scale, or 0 for automatic')
+  .action(async (options) => runResize(globals(), options));
+
+program
+  .command('eval <code>')
+  .description('evaluate a Groovy expression with mc, player, level, screen and server bound')
+  .action(async (code) => runEval(globals(), code));
+
+program
+  .command('hotswap')
+  .description('recompile the project and redefine the changed classes in the running client')
+  .option('--no-compile', 'skip the Gradle compile and swap whatever is already built')
+  .option('--baseline', 'record the current classes as the baseline without swapping', false)
+  .action(async (options) => runHotswap(globals(), options));
 
 program
   .command('doctor')
   .description('check that this machine can build and launch a dev client')
+  .option('--loader <loader>', 'check for this loader specifically: fabric or neoforge')
   .option('--no-network', 'skip the network reachability probes')
   .action(async (options) => {
     const code = await runDoctor(globals(), options);
     process.exitCode = code;
   });
 
+/**
+ * Piping into `head` or `grep -q` closes stdout while the CLI is still writing, and Node turns
+ * that into a fatal EPIPE. Since piping is exactly how an agent reads this output, a broken pipe
+ * has to mean "the reader has what it needs", not a crash.
+ */
+function ignoreBrokenPipe(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EPIPE') {
+        process.exit(process.exitCode ?? EXIT_OK);
+      }
+      throw error;
+    });
+  }
+}
+
 async function main(): Promise<void> {
+  ignoreBrokenPipe();
   try {
     await program.parseAsync(process.argv);
   } catch (error) {

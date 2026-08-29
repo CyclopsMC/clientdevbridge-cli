@@ -89,7 +89,10 @@ function javaCheck(): Check {
   };
 }
 
-export async function collectChecks(projectDir: string, options: { network: boolean }): Promise<Check[]> {
+export async function collectChecks(
+  projectDir: string,
+  options: { network: boolean; loader?: string | undefined },
+): Promise<Check[]> {
   const checks: Check[] = [];
   checks.push(javaCheck());
 
@@ -131,7 +134,7 @@ export async function collectChecks(projectDir: string, options: { network: bool
 
   if (hasWrapper) {
     try {
-      const project = detectProject(projectDir);
+      const project = detectProject(projectDir, { loader: options.loader as 'fabric' | 'neoforge' | undefined });
       checks.push({
         name: 'project',
         ok: true,
@@ -204,7 +207,10 @@ export async function collectChecks(projectDir: string, options: { network: bool
   return checks;
 }
 
-export async function runDoctor(global: GlobalOptions, options: { network: boolean }): Promise<number> {
+export async function runDoctor(
+  global: GlobalOptions,
+  options: { network: boolean; loader?: string | undefined },
+): Promise<number> {
   const checks = await collectChecks(global.project, options);
   const failures = checks.filter((check) => !check.ok);
 

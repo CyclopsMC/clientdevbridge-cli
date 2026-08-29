@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
@@ -35,6 +35,92 @@ export interface StartOptions {
   readonly pinOptions: boolean;
   readonly jdwpPort: number | null;
   readonly onProgress?: (line: string) => void;
+}
+
+/**
+ * Best-effort identification of whatever holds a port, for the orphaned-client message.
+ * Returns null when the platform has no tool for it; this is a nicety, never a requirement.
+ */
+/**
+ * Removes Loom's cached *remapped* copy of the bridge mod.
+ *
+ * Loom remaps every mod on the dev runtime classpath and caches the result keyed by group,
+ * artifact and version. A local build republished under the same version (`1.0.0-DEV`, say) is
+ * therefore never re-read: the client silently keeps running the previous build, which looks
+ * exactly like the new code having no effect. NeoGradle uses the jar directly and does not have
+ * this problem, so it only ever bites on Fabric — and only while developing ClientDevBridge
+ * itself, which is precisely when it is most confusing.
+ *
+ * Only local builds are affected: a released version is immutable, so its cache entry is correct.
+ */
+export function clearLoomRemapCache(projectDir: string, minecraftVersion: string, loader: Loader): string[] {
+  if (loader !== 'fabric') {
+    return [];
+  }
+  const cleared: string[] = [];
+  const artifact = artifactId(minecraftVersion, loader);
+
+  for (const cacheRoot of findLoomCaches(projectDir)) {
+    const stack = [cacheRoot];
+    while (stack.length > 0) {
+      const directory = stack.pop() as string;
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(directory, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+        const full = path.join(directory, entry.name);
+        if (entry.name === artifact) {
+          fs.rmSync(full, { recursive: true, force: true });
+          cleared.push(full);
+        } else {
+          stack.push(full);
+        }
+      }
+    }
+  }
+  return cleared;
+}
+
+function findLoomCaches(projectDir: string): string[] {
+  const roots: string[] = [];
+  const candidates = [projectDir, ...fs
+    .readdirSync(projectDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith('loader-'))
+    .map((entry) => path.join(projectDir, entry.name))];
+
+  for (const candidate of candidates) {
+    const cache = path.join(candidate, '.gradle', 'loom-cache', 'remapped_mods');
+    if (fs.existsSync(cache)) {
+      roots.push(cache);
+    }
+  }
+  return roots;
+}
+
+export function describePortOwner(port: number): string | null {
+  if (process.platform === 'win32') {
+    return null;
+  }
+  try {
+    const output = execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpc'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const pid = /^p(\d+)/m.exec(output);
+    if (pid !== null) {
+      const name = /^c(.+)$/m.exec(output);
+      return `${pid[1]} (${name === null ? 'unknown' : name[1]})`;
+    }
+  } catch {
+    // lsof is missing or found nothing; the caller falls back to a generic hint.
+  }
+  return null;
 }
 
 export async function isPortFree(port: number): Promise<boolean> {
@@ -79,11 +165,27 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   const bridgeVersion = options.bridgeVersion ?? resolveBridgeVersion(project.minecraftVersion, project.loader);
 
   if (!(await isPortFree(options.port))) {
+    // Reaching here with no session recorded means an orphan: a client whose session.json was
+    // deleted or overwritten, which `stop` can no longer find. Naming the process is the
+    // difference between a one-command fix and a puzzle.
+    const owner = describePortOwner(options.port);
     throw new CliError(
       `Port ${options.port} on 127.0.0.1 is already in use, so the client could not claim it.`,
       2,
-      'Pass --port <other> to use a different one, or stop whatever is listening there.',
+      owner === null
+        ? 'Pass --port <other> to use a different one, or stop whatever is listening there.'
+        : `An orphaned client still holds it: pid ${owner}. Stop it with 'kill ${owner.split(' ')[0]}', ` +
+          'or start this one elsewhere with --port <other>.',
     );
+  }
+
+  // A mavenLocal build means someone is iterating on ClientDevBridge itself, and Loom would
+  // otherwise keep serving the previously remapped copy of the same version.
+  if (options.bridgeVersion === undefined && newestInMavenLocal(project.minecraftVersion, project.loader) !== null) {
+    const cleared = clearLoomRemapCache(project.projectDir, project.minecraftVersion, project.loader);
+    if (cleared.length > 0) {
+      options.onProgress?.(`Cleared Loom's cached remap of the local build (${cleared.length} entry/entries)`);
+    }
   }
 
   ensureDirectories(paths);
@@ -104,6 +206,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       width: options.width,
       height: options.height,
       jdwpPort: options.jdwpPort,
+      projectDir: project.projectDir,
     }),
     'utf8',
   );
@@ -232,11 +335,18 @@ async function waitForHandshake(
     if (!(await isPortFree(session.port))) {
       try {
         const client = await BridgeClient.connect({ port: session.port, timeoutMs: 10_000 });
+        // The socket opens during mod initialisation, long before the game is usable: the
+        // resource reload is still running, no client ticks are happening, and the next command
+        // would race the startup. Wait for the game to actually be up.
+        const status = await client.call<Record<string, unknown>>('status', {}, 10_000);
+        const ready = status['loaded'] === true;
         const hello = client.hello;
         client.close();
-        return hello;
+        if (ready) {
+          return hello;
+        }
       } catch {
-        // The port is open but the handshake is not finished; keep waiting.
+        // The port is open but the handshake or status is not ready; keep waiting.
       }
     }
     if (Date.now() - lastReport > 15_000) {

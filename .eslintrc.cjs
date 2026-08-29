@@ -7,6 +7,11 @@ module.exports = {
   env: { node: true, es2022: true },
   rules: {
     '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    // The leading underscore is also how a destructuring rest is used to *drop* a property,
+    // which is exactly what stripping base64 out of a result before printing it looks like.
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+    ],
   },
 };

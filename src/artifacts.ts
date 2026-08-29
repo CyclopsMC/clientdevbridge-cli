@@ -60,3 +60,12 @@ export function unsupportedMessage(minecraftVersion: string): string {
     "'./gradlew publishToMavenLocal' in a ClientDevBridge checkout on the matching branch."
   );
 }
+
+/**
+ * The Groovy engine that powers `eval` and `wait --expr`.
+ *
+ * The mod reaches it through `javax.script`, so it is genuinely optional — but the Cyclops
+ * publishing convention emits artifact-only POMs, so nothing declares it transitively and the
+ * init script has to add it alongside the bridge itself.
+ */
+export const GROOVY_DEPENDENCY = 'org.apache.groovy:groovy-jsr223:4.0.22';
