@@ -1,0 +1,95 @@
+import * as fs from 'node:fs';
+import { z } from 'zod';
+import { SessionError } from './errors.js';
+import { type BridgePaths, resolvePaths } from './paths.js';
+
+export const sessionSchema = z.object({
+  version: z.literal(1),
+  port: z.number().int().positive(),
+  pid: z.number().int().positive(),
+  pgid: z.number().int(),
+  loader: z.enum(['fabric', 'neoforge']),
+  mcVersion: z.string(),
+  bridgeVersion: z.string(),
+  projectDir: z.string(),
+  gradleTask: z.string(),
+  startedAt: z.string(),
+  world: z.string().nullable(),
+  headed: z.boolean(),
+  display: z.string().nullable(),
+  jdwpPort: z.number().int().positive().nullable(),
+});
+
+export type Session = z.infer<typeof sessionSchema>;
+
+export interface SessionStatus {
+  readonly paths: BridgePaths;
+  readonly session: Session | null;
+  /** True when session.json exists but the process it names is gone (a reclaimed VM, a crash, a reboot). */
+  readonly stale: boolean;
+}
+
+export function readSession(projectDir: string): SessionStatus {
+  const paths = resolvePaths(projectDir);
+  if (!fs.existsSync(paths.sessionFile)) {
+    return { paths, session: null, stale: false };
+  }
+
+  let parsed: Session;
+  try {
+    parsed = sessionSchema.parse(JSON.parse(fs.readFileSync(paths.sessionFile, 'utf8')));
+  } catch {
+    // A truncated or older session file is treated exactly like a dead one, so that a cold VM
+    // never leaves the CLI stuck on a file it cannot read.
+    return { paths, session: null, stale: true };
+  }
+
+  return { paths, session: parsed, stale: !isProcessAlive(parsed.pid) };
+}
+
+export function writeSession(paths: BridgePaths, session: Session): void {
+  fs.writeFileSync(paths.sessionFile, `${JSON.stringify(session, null, 2)}\n`, 'utf8');
+}
+
+export function clearSession(paths: BridgePaths): void {
+  if (fs.existsSync(paths.sessionFile)) {
+    fs.rmSync(paths.sessionFile);
+  }
+}
+
+/**
+ * Returns the session for commands that need a running client, with a message that says what to do
+ * rather than just what went wrong.
+ */
+export function requireRunningSession(projectDir: string): { session: Session; paths: BridgePaths } {
+  const status = readSession(projectDir);
+  if (status.session === null) {
+    if (status.stale) {
+      throw new SessionError(
+        `The session file at ${status.paths.sessionFile} is unreadable, so no client is being tracked.`,
+        "Run 'clientdevbridge start' to launch a fresh client.",
+      );
+    }
+    throw new SessionError(
+      `No ClientDevBridge session in ${status.paths.projectDir}.`,
+      "Run 'clientdevbridge start' first (add --project <dir> if the mod project is elsewhere).",
+    );
+  }
+  if (status.stale) {
+    throw new SessionError(
+      `The recorded client (pid ${status.session.pid}) is no longer running.`,
+      "Run 'clientdevbridge start' to launch a new one; 'clientdevbridge logs --gradle' shows why the old one exited.",
+    );
+  }
+  return { session: status.session, paths: status.paths };
+}
+
+export function isProcessAlive(pid: number): boolean {
+  try {
+    // Signal 0 performs the permission and existence checks without delivering a signal.
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}

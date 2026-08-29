@@ -1,0 +1,52 @@
+{
+  "name": "@cyclopsmc/clientdevbridge-cli",
+  "version": "0.1.0",
+  "description": "CLI that launches and drives a Minecraft dev client through the ClientDevBridge mod, for coding agents.",
+  "keywords": ["minecraft", "modding", "cyclopsmc", "agent", "claude-code", "testing"],
+  "license": "MIT",
+  "author": "rubensworks (aka kroeser)",
+  "homepage": "https://github.com/CyclopsMC/clientdevbridge-cli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CyclopsMC/clientdevbridge-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CyclopsMC/clientdevbridge-cli/issues"
+  },
+  "type": "module",
+  "bin": {
+    "clientdevbridge": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src test --ext .ts",
+    "lint:fix": "eslint src test --ext .ts --fix"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/ws": "^8.5.12",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
