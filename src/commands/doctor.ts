@@ -53,7 +53,7 @@ function reachable(host: string, timeoutMs = 8000): Promise<boolean> {
   });
 }
 
-function javaCheck(): Check {
+function javaCheck(requiredMajor: number): Check {
   // `java -version` reports on stderr, and some environments prepend a JAVA_TOOL_OPTIONS notice,
   // so both streams are read and searched rather than just stdout.
   const probe = spawnSync('java', ['-version'], { encoding: 'utf8' });
@@ -81,11 +81,19 @@ function javaCheck(): Check {
     };
   }
   const major = Number(match[1]);
+  const ok = major >= requiredMajor;
   return {
     name: 'java',
-    ok: major >= 21,
-    detail: versionLine ?? `Java ${major}`,
-    fix: major >= 21 ? '' : `Minecraft 1.21+ needs Java 21, but found Java ${major}. Install it, e.g. sudo apt-get install -y openjdk-21-jdk`,
+    ok,
+    detail: `${versionLine ?? `Java ${major}`} (this project needs ${requiredMajor})`,
+    fix: ok
+      ? ''
+      : `This project needs Java ${requiredMajor}, but Gradle would run on Java ${major}. ` +
+        `Install it and point JAVA_HOME at it:\n` +
+        `      sudo apt-get install -y openjdk-${requiredMajor}-jdk\n` +
+        `      export JAVA_HOME=/usr/lib/jvm/java-${requiredMajor}-openjdk-amd64\n` +
+        '    A Gradle toolchain is not enough here: the loader plugins refuse to configure when ' +
+        'Gradle itself runs on an older JDK than the Minecraft version needs.',
   };
 }
 
@@ -94,7 +102,10 @@ export async function collectChecks(
   options: { network: boolean; loader?: string | undefined },
 ): Promise<Check[]> {
   const checks: Check[] = [];
-  checks.push(javaCheck());
+  // The required Java version is a property of the project, not a constant: Minecraft 1.21 needs
+  // 21 and 26 needs 25, and the loader plugins check the JDK Gradle itself runs on.
+  const declaredJava = Number(readGradleProperties(projectDir)['java_version'] ?? '21');
+  checks.push(javaCheck(Number.isNaN(declaredJava) ? 21 : declaredJava));
 
   checks.push({
     name: 'node',
