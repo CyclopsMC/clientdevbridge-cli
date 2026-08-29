@@ -207,6 +207,8 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       height: options.height,
       jdwpPort: options.jdwpPort,
       projectDir: project.projectDir,
+      // The Gradle path of the module being launched: ':loader-neoforge:runClient' -> ':loader-neoforge'.
+      targetProjectPath: project.gradleTask.replace(/:runClient$/, '') || ':',
     }),
     'utf8',
   );

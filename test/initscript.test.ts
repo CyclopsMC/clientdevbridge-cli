@@ -16,6 +16,7 @@ const baseOptions = {
   height: 480,
   jdwpPort: null,
   projectDir: '/tmp/project',
+  targetProjectPath: ':loader-neoforge',
 };
 
 describe('renderInitScript', () => {
@@ -35,13 +36,19 @@ describe('renderInitScript', () => {
     expect(renderInitScript(baseOptions)).toContain('project.afterEvaluate {');
   });
 
-  it('looks the runtime configuration up rather than assuming one', () => {
-    // Loom dropped modLocalRuntime and ModDevGradle added additionalRuntimeClasspath, so hardcoding
-    // either one breaks on some supported Minecraft version.
+  it('looks the Loom runtime configuration up rather than assuming one', () => {
+    // Loom dropped modLocalRuntime between the 1.21 and 26 toolchains, so hardcoding it breaks.
     const script = renderInitScript(baseOptions);
     expect(script).toContain('firstExisting');
     expect(script).toContain("'modLocalRuntime', 'localRuntime', 'runtimeOnly'");
-    expect(script).toContain("'additionalRuntimeClasspath', 'localRuntime', 'runtimeOnly'");
+  });
+
+  it('only injects into the module being launched', () => {
+    // Injecting into a multiloader repo's other loader modules is pointless, and on the Minecraft
+    // 26 toolchain it makes Loom set Minecraft up before its mappings are populated.
+    const script = renderInitScript(baseOptions);
+    expect(script).toContain("def clientDevBridgeTarget = ':loader-neoforge'");
+    expect(script).toContain('project.path != clientDevBridgeTarget');
   });
 
   it('enables the bridge and pins the port', () => {

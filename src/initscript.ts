@@ -16,6 +16,11 @@ export interface InitScriptOptions {
   readonly jdwpPort: number | null;
   /** The consumer project root, so the mod can resolve committed world templates. */
   readonly projectDir: string;
+  /**
+   * The Gradle path of the module whose client is being launched, e.g. `:loader-neoforge`, or an
+   * empty string for a single-module project.
+   */
+  readonly targetProjectPath: string;
   /** Extra `-D` properties, exposed for tests and for `--gradle-args` style overrides. */
   readonly extraJvmArgs?: readonly string[];
 }
@@ -65,6 +70,12 @@ def clientDevBridgeDependency = ${groovyString(dependency)}
 // transitive resolution because the Cyclops publishing convention emits artifact-only POMs, so the
 // published module carries no dependency metadata for a consumer to resolve.
 def clientDevBridgeGroovy = ${groovyString(GROOVY_DEPENDENCY)}
+// Only the module being launched is touched. A multiloader repo configures every loader module in
+// the same build, and injecting into the ones that are not being run is at best pointless: on the
+// Minecraft 26 toolchain, adding a dependency to Loom's project makes it set Minecraft up before
+// its own mappings configuration is populated, which fails the whole build with an error that
+// names neither this script nor the module it came from.
+def clientDevBridgeTarget = ${groovyString(options.targetProjectPath)}
 def clientDevBridgeJvmArgs = [
 ${jvmArgs.map((arg) => `        ${groovyString(arg)}`).join(',\n')}
 ]
@@ -114,6 +125,10 @@ allprojects { project ->
         project.plugins.withId(neoId) { neoApplied = true }
     }
 
+    if (project.path != clientDevBridgeTarget) {
+        return
+    }
+
     project.afterEvaluate {
         if (loomApplied) {
             project.dependencies.add(firstExisting('modLocalRuntime', 'localRuntime', 'runtimeOnly'),
@@ -121,10 +136,11 @@ allprojects { project ->
             // Groovy is a plain library, not a mod, so it must never go through Loom's remapping.
             project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
         } else if (neoApplied) {
-            // NeoGradle and ModDevGradle discover mods from the runtime classpath directly.
-            def configuration = firstExisting('additionalRuntimeClasspath', 'localRuntime', 'runtimeOnly')
-            project.dependencies.add(configuration, clientDevBridgeDependency)
-            project.dependencies.add(configuration, clientDevBridgeGroovy)
+            // NeoGradle and ModDevGradle both discover mods from the runtime classpath directly,
+            // and ModDevGradle 2 rejects additionalRuntimeClasspath outright, telling callers to
+            // use a standard configuration instead.
+            project.dependencies.add('runtimeOnly', clientDevBridgeDependency)
+            project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
         }
     }
 
