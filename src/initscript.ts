@@ -149,7 +149,12 @@ allprojects { project ->
     project.tasks.matching { it.name == 'runClient' }.configureEach { task ->
         if (task instanceof JavaExec) {
             task.jvmArgs(clientDevBridgeJvmArgs)
-            task.args(clientDevBridgeProgramArgs)
+            // Program arguments go through an argument provider rather than args(). Gradle emits
+            // every static argument before every provider's, and ModDevGradle passes the real main
+            // class through a provider -- so appending statically puts our first argument ahead of
+            // it, and the launcher tries to load '--username' as the main class. Registering a
+            // provider last keeps ours genuinely last.
+            task.argumentProviders.add({ clientDevBridgeProgramArgs } as org.gradle.process.CommandLineArgumentProvider)
         } else {
             project.logger.warn("ClientDevBridge: task \${task.path} is not a JavaExec, so its JVM arguments were not set. " +
                     'Report this with the loader and plugin versions at https://github.com/CyclopsMC/clientdevbridge-cli/issues')

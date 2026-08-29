@@ -81,6 +81,13 @@ describe('renderInitScript', () => {
     expect(script).toContain("it.name == 'runClient'");
   });
 
+  it('adds program arguments through a provider so they stay last', () => {
+    // Gradle emits every static argument before every provider's, and ModDevGradle passes the main
+    // class through a provider: appending statically makes the launcher treat our first argument
+    // as the main class.
+    expect(renderInitScript(baseOptions)).toContain('task.argumentProviders.add(');
+  });
+
   it('escapes quotes in paths rather than producing broken Groovy', () => {
     const script = renderInitScript({ ...baseOptions, projectDir: "/tmp/it's here" });
     expect(script).toContain("\\'");
