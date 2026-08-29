@@ -75,7 +75,8 @@ program
 program
   .command('stop')
   .description('kill the dev client and its whole process group')
-  .action(async () => runStop(globals()));
+  .option('--port <port>', 'the bridge port to check for an orphaned client', START_DEFAULTS.port)
+  .action(async (options) => runStop(globals(), options));
 
 program
   .command('status')

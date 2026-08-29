@@ -399,14 +399,22 @@ export function readTruncated(file: string): string {
 /**
  * Kills the whole process group, so Gradle, xvfb-run, and the forked client JVM all go together.
  */
-export async function stop(projectDir: string): Promise<{ stopped: boolean; wasStale: boolean }> {
+export async function stop(
+  projectDir: string,
+  port = DEFAULT_PORT,
+): Promise<{ stopped: boolean; wasStale: boolean; orphan: string | null }> {
   const status = readSession(projectDir);
   if (status.session === null) {
-    return { stopped: false, wasStale: status.stale };
+    // No session file, but something may still be holding the port: a client whose session.json
+    // was deleted is exactly the case where a caller most needs to be told, rather than quietly
+    // told "nothing was running" while a Minecraft client keeps going.
+    const orphan = (await isPortFree(port)) ? null : describePortOwner(port);
+    return { stopped: false, wasStale: status.stale, orphan };
   }
   if (status.stale) {
     clearSession(status.paths);
-    return { stopped: false, wasStale: true };
+    const orphan = (await isPortFree(status.session.port)) ? null : describePortOwner(status.session.port);
+    return { stopped: false, wasStale: true, orphan };
   }
 
   const pgid = status.session.pgid;
@@ -422,7 +430,7 @@ export async function stop(projectDir: string): Promise<{ stopped: boolean; wasS
   }
 
   clearSession(status.paths);
-  return { stopped: true, wasStale: false };
+  return { stopped: true, wasStale: false, orphan: null };
 }
 
 function signalGroup(pgid: number, signal: NodeJS.Signals): void {

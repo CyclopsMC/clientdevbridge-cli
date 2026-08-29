@@ -1,6 +1,6 @@
 import { line, printJson } from '../output.js';
 import { type GlobalOptions, withClient } from './context.js';
-import { CliError } from '../errors.js';
+import { CliError, EXIT_PROTOCOL } from '../errors.js';
 
 export interface WorldResetOptions {
   readonly name?: string | undefined;
@@ -82,19 +82,27 @@ export async function runWorldList(global: GlobalOptions): Promise<void> {
 
 export async function runCommand(global: GlobalOptions, command: string): Promise<void> {
   await withClient(global, async ({ client }) => {
-    const result = await client.call<{ output: string[] }>('world.command', { command }, 60_000);
+    const result = await client.call<{ output: string[]; success: boolean }>(
+      'world.command',
+      { command },
+      60_000,
+    );
     if (global.json) {
       printJson(result);
-      return;
-    }
-    if (result.output.length === 0) {
+    } else if (result.output.length === 0) {
       if (!global.quiet) {
-        line('(the command produced no output)');
+        line(result.success ? '(the command produced no output)' : '(the command failed with no output)');
       }
-      return;
+    } else {
+      for (const entry of result.output) {
+        line(entry);
+      }
     }
-    for (const entry of result.output) {
-      line(entry);
+
+    // A failing command still prints something, so without this a scripted setup would sail past
+    // a scene that was never built and leave the caller debugging a phantom.
+    if (!result.success) {
+      process.exitCode = EXIT_PROTOCOL;
     }
   });
 }

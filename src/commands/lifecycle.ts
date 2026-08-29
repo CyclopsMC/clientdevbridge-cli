@@ -1,5 +1,15 @@
 import * as path from 'node:path';
-import { DEFAULT_HEIGHT, DEFAULT_PORT, DEFAULT_USERNAME, DEFAULT_WIDTH, start, stop, tailFile } from '../launcher.js';
+import {
+  DEFAULT_HEIGHT,
+  DEFAULT_PORT,
+  DEFAULT_USERNAME,
+  DEFAULT_WIDTH,
+  describePortOwner,
+  isPortFree,
+  start,
+  stop,
+  tailFile,
+} from '../launcher.js';
 import { formatDuration, keyValues, line, printJson } from '../output.js';
 import { readSession } from '../session.js';
 import { BridgeClient } from '../protocol/client.js';
@@ -62,8 +72,8 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
   ]);
 }
 
-export async function runStop(global: GlobalOptions): Promise<void> {
-  const result = await stop(global.project);
+export async function runStop(global: GlobalOptions, options: { port?: string | undefined } = {}): Promise<void> {
+  const result = await stop(global.project, options.port === undefined ? undefined : Number(options.port));
   if (global.json) {
     printJson(result);
     return;
@@ -75,6 +85,12 @@ export async function runStop(global: GlobalOptions): Promise<void> {
   } else {
     line('No client was running.');
   }
+  if (result.orphan !== null) {
+    line('');
+    line(`But something is still listening on the bridge port: pid ${result.orphan}.`);
+    line(`That is an orphaned client whose session file is gone. Stop it with: kill ${result.orphan.split(' ')[0]}`);
+    process.exitCode = 2;
+  }
 }
 
 export async function runStatus(global: GlobalOptions): Promise<void> {
@@ -82,17 +98,34 @@ export async function runStatus(global: GlobalOptions): Promise<void> {
 
   if (status.session === null || status.stale) {
     const reason = status.session === null && !status.stale ? 'no session recorded' : 'the recorded process is gone';
+    // The session file is not the only evidence: a client whose session.json was deleted is still
+    // running, and reporting it as gone is worse than reporting nothing at all.
+    const port = status.session?.port ?? DEFAULT_PORT;
+    const orphan = (await isPortFree(port)) ? null : describePortOwner(port);
+
     if (global.json) {
-      printJson({ running: false, reason, project: status.paths.projectDir });
+      printJson({ running: false, reason, project: status.paths.projectDir, orphanOnPort: orphan });
       return;
     }
     line(`Not running (${reason}) in ${status.paths.projectDir}.`);
-    line("Start one with: clientdevbridge start");
-    const tail = tailFile(status.paths.gradleLog, 20);
-    if (tail !== '(no log yet)' && tail.length > 0) {
+    if (orphan !== null) {
       line('');
-      line(`Last 20 lines of ${status.paths.gradleLog}:`);
-      line(tail);
+      line(`Something is still listening on port ${port}: pid ${orphan}.`);
+      line('That is an orphaned client whose session file is gone. Either reattach by restoring the');
+      line(`session, or stop it with: kill ${orphan.split(' ')[0]}`);
+      return;
+    }
+    line('Start one with: clientdevbridge start');
+    // The log tail is what explains a crash. After a deliberate stop it is just noise, and a
+    // cleanly stopped session leaves no marker to tell the two apart -- so only show it when the
+    // client is recorded as having died rather than never having been tracked.
+    if (status.stale) {
+      const tail = tailFile(status.paths.gradleLog, 20);
+      if (tail !== '(no log yet)' && tail.length > 0) {
+        line('');
+        line(`The client exited. Last 20 lines of ${status.paths.gradleLog}:`);
+        line(tail);
+      }
     }
     return;
   }

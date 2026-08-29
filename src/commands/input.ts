@@ -173,13 +173,25 @@ export async function runEval(global: GlobalOptions, code: string): Promise<void
     if (stdout.length > 0) {
       process.stdout.write(stdout.endsWith('\n') ? stdout : `${stdout}\n`);
     }
+    // The mod describes anything it cannot map to JSON as { type, toString }. Every JS object
+    // inherits a toString, so this has to check for that exact shape rather than for the key.
     const value = result['value'];
-    if (value !== null && typeof value === 'object' && 'toString' in (value as object)) {
-      line(String((value as Record<string, unknown>)['toString']));
+    if (isDescribedObject(value)) {
+      line(value['toString']);
     } else {
       line(JSON.stringify(value));
     }
   });
+}
+
+export function isDescribedObject(value: unknown): value is { type: string; toString: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>)['type'] === 'string' &&
+    typeof (value as Record<string, unknown>)['toString'] === 'string'
+  );
 }
 
 export async function runWaitFor(
