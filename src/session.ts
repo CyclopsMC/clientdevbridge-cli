@@ -18,6 +18,13 @@ export const sessionSchema = z.object({
   headed: z.boolean(),
   display: z.string().nullable(),
   jdwpPort: z.number().int().positive().nullable(),
+  /**
+   * Xvfb servers this launch started. `stop` kills them explicitly: killing the process group
+   * does not reliably take them with it, and a leaked one is not harmless -- a stale server on a
+   * display a later run reuses makes the next client die with an X GLX BadAccess before it
+   * renders anything. Optional so a session file written by an older CLI still parses.
+   */
+  xvfbPids: z.array(z.number().int().positive()).optional(),
 });
 
 export type Session = z.infer<typeof sessionSchema>;

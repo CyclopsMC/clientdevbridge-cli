@@ -60,3 +60,22 @@ export function planDisplay(
     description: 'xvfb-run with Mesa llvmpipe',
   };
 }
+
+/**
+ * The pids of every Xvfb server currently running.
+ *
+ * `xvfb-run` picks a free display itself and never says which, so the only way to know what it
+ * started is to look before and after. Anything that appears in between is what this launch is
+ * responsible for cleaning up.
+ */
+export function xvfbPids(): number[] {
+  try {
+    return execFileSync('pgrep', ['-x', 'Xvfb'], { encoding: 'utf8' })
+      .split('\n')
+      .map((line) => Number(line.trim()))
+      .filter((pid) => Number.isInteger(pid) && pid > 0);
+  } catch {
+    // pgrep exits non-zero when nothing matches, and is absent on platforms that never use Xvfb.
+    return [];
+  }
+}

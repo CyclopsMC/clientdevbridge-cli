@@ -9,7 +9,7 @@ import { pinOptions, renderInitScript } from './initscript.js';
 import { ensureDirectories, ensureGitignore, resolvePaths } from './paths.js';
 import { clearSession, isProcessAlive, readSession, type Session, writeSession } from './session.js';
 import { BridgeClient } from './protocol/client.js';
-import { planDisplay } from './xvfb.js';
+import { planDisplay, xvfbPids } from './xvfb.js';
 import { artifactId, findLine, GROUP, unsupportedMessage } from './artifacts.js';
 
 export const DEFAULT_PORT = 25599;
@@ -247,6 +247,10 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   fs.writeFileSync(paths.gradleLog, '', 'utf8');
   const logStream = fs.openSync(paths.gradleLog, 'a');
 
+  // xvfb-run picks a free display itself and never says which, so the only way to know what it
+  // started is to compare before and after.
+  const xvfbBefore = new Set(xvfbPids());
+
   // Gradle runs on JAVA_HOME, not on whatever `java` the PATH resolves to, and the loader plugins
   // check that JDK rather than the toolchain: Loom refuses to configure a Minecraft 26 project on
   // Java 21, during configuration, with an error that never mentions JAVA_HOME. Point Gradle at a
@@ -290,6 +294,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     headed: options.headed,
     display: display.description,
     jdwpPort: options.jdwpPort,
+    xvfbPids: [],
   };
   writeSession(paths, session);
 
@@ -299,6 +304,11 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     options.timeoutMs,
     options.onProgress,
   );
+  // Now, not right after the spawn: Gradle takes most of a minute to get as far as launching the
+  // client, and xvfb-run only starts a server when it does. A client that has answered has one.
+  const started = { ...session, xvfbPids: xvfbPids().filter((pid) => !xvfbBefore.has(pid)) };
+  writeSession(paths, started);
+
   if (options.pinOptions && gameDir !== null && path.resolve(gameDir) !== path.resolve(project.runDir)) {
     // The guess was wrong, so this run is not pinned. Pin the directory the client actually named,
     // which is also what `detectRunDir` will find next time, and say so rather than let the next
@@ -309,7 +319,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
         'restart to apply them to a running client.',
     );
   }
-  return { session, hello };
+  return { session: started, hello };
 }
 
 /**
@@ -464,8 +474,30 @@ export async function stop(
     await delay(500);
   }
 
+  reapXvfb(status.session.xvfbPids ?? []);
+
   clearSession(status.paths);
   return { stopped: true, wasStale: false, orphan: null };
+}
+
+/**
+ * Kills the Xvfb servers a launch started.
+ *
+ * Killing the process group does not reliably take them: xvfb-run backgrounds Xvfb and relies on
+ * its own exit trap to clean up, and the trap does not run when the group is killed. The leak is
+ * not harmless -- Xvfb keeps its display's lock, and a later run that lands on that display dies
+ * with an X GLX BadAccess before it renders anything.
+ *
+ * Only pids recorded by this session are touched, so another project's client is never disturbed.
+ */
+function reapXvfb(pids: readonly number[]): void {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      // Already gone, which is the common case: xvfb-run's trap does sometimes get to run.
+    }
+  }
 }
 
 function signalGroup(pgid: number, signal: NodeJS.Signals): void {
