@@ -40,7 +40,7 @@ export async function runHotswap(global: GlobalOptions, options: HotswapOptions)
     if (!global.quiet) {
       line('Compiling...');
     }
-    gradleCompile(project.projectDir, project.gradleWrapper);
+    gradleCompile(project.projectDir, project.gradleWrapper, project.javaVersion);
   }
 
   const current = scanClasses(project.projectDir);

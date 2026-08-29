@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { CliError } from './errors.js';
+import { resolveJavaHome } from './java.js';
 
 export interface ClassFile {
   readonly binaryName: string;
@@ -219,12 +220,16 @@ export function detectJetBrainsRuntime(): boolean {
   }
 }
 
-export function gradleCompile(projectDir: string, gradleWrapper: string): string {
+export function gradleCompile(projectDir: string, gradleWrapper: string, javaVersion = 21): string {
+  // Same reason as in the launcher: Gradle runs on JAVA_HOME, and the loader plugins refuse to
+  // configure at all when that JDK is older than the Minecraft version needs.
+  const java = resolveJavaHome(javaVersion);
   try {
     return execFileSync(gradleWrapper, ['compileJava', '--console=plain', '--no-daemon'], {
       cwd: projectDir,
       encoding: 'utf8',
       timeout: 600_000,
+      env: { ...process.env, ...(java.javaHome === null ? {} : { JAVA_HOME: java.javaHome }) },
     });
   } catch (error) {
     const failure = error as { stdout?: string; stderr?: string };

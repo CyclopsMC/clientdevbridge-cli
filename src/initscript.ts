@@ -104,10 +104,12 @@ allprojects { project ->
         }
     }
 
-    // Which configuration a runtime mod belongs in differs by loader and by plugin generation --
-    // Loom dropped modLocalRuntime, ModDevGradle added additionalRuntimeClasspath -- so the
-    // configuration is looked up rather than assumed. That keeps this script working across every
-    // supported Minecraft version without the CLI having to know which toolchain each one uses.
+${
+  options.loader === 'fabric'
+    ? `    // Which configuration a runtime mod belongs in differs between Loom generations -- 1.15
+    // dropped modLocalRuntime -- so the name is looked up rather than assumed. That keeps this
+    // working across Minecraft versions without the CLI tracking each toolchain's configuration
+    // names on top of everything else it already has to know.
     def firstExisting = { String... names ->
         for (String candidate : names) {
             if (project.configurations.findByName(candidate) != null) {
@@ -116,34 +118,31 @@ allprojects { project ->
         }
         return 'runtimeOnly'
     }
-
-    // The additions are deferred to afterEvaluate on purpose. A plugins.withId callback fires while
-    // the build script's plugins { } block is still running -- before its dependencies { } block has
-    // declared anything -- and adding to a Loom-managed configuration that early makes Loom set
-    // Minecraft up before its own minecraft and mappings configurations have been populated,
-    // which it reports as "Configuration 'mappings' has no dependencies".
-    def loomApplied = false
-    ['fabric-loom', 'net.fabricmc.fabric-loom'].each { loomId ->
-        project.plugins.withId(loomId) { loomApplied = true }
-    }
-    def neoApplied = false
-    ['net.neoforged.gradle.userdev', 'net.neoforged.moddev'].each { neoId ->
-        project.plugins.withId(neoId) { neoApplied = true }
-    }
-
+`
+    : ''
+}
+    // Which loader this is comes from the CLI, which already had to decide before it could pick the
+    // artifact to inject. Asking Gradle instead is not free: registering a
+    // plugins.withId('net.fabricmc.fabric-loom') callback -- even an empty one -- is enough to make
+    // Loom 1.15 set Minecraft up before the build script's dependencies { } block has run, and the
+    // build dies with "Configuration 'mappings' has no dependencies", naming neither this script
+    // nor what it did.
+    //
+    // The additions are deferred to afterEvaluate for a related reason: adding to a Loom-managed
+    // configuration while the build script is still being evaluated has the same effect.
     project.afterEvaluate {
-        if (loomApplied) {
-            project.dependencies.add(firstExisting('modLocalRuntime', 'localRuntime', 'runtimeOnly'),
-                    clientDevBridgeDependency)
-            // Groovy is a plain library, not a mod, so it must never go through Loom's remapping.
-            project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
-        } else if (neoApplied) {
-            // NeoGradle and ModDevGradle both discover mods from the runtime classpath directly,
-            // and ModDevGradle 2 rejects additionalRuntimeClasspath outright, telling callers to
-            // use a standard configuration instead.
-            project.dependencies.add('runtimeOnly', clientDevBridgeDependency)
-            project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
-        }
+${
+  options.loader === 'fabric'
+    ? `        project.dependencies.add(firstExisting('modLocalRuntime', 'localRuntime', 'runtimeOnly'),
+                clientDevBridgeDependency)
+        // Groovy is a plain library, not a mod, so it must never go through Loom's remapping.
+        project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)`
+    : `        // NeoGradle and ModDevGradle both discover mods from the runtime classpath directly,
+        // and ModDevGradle 2 rejects additionalRuntimeClasspath outright, telling callers to
+        // use a standard configuration instead.
+        project.dependencies.add('runtimeOnly', clientDevBridgeDependency)
+        project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)`
+}
     }
 
     project.tasks.matching { it.name == 'runClient' }.configureEach { task ->

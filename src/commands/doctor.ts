@@ -1,9 +1,9 @@
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
 import { ARTIFACT_LINES, artifactId, findLine, GROUP } from '../artifacts.js';
-import { detectLoaders, detectProject, readGradleProperties } from '../detect.js';
+import { declaredJavaVersion, detectLoaders, detectProject, readGradleProperties } from '../detect.js';
+import { findJavaHome, gradleJava } from '../java.js';
 import { line, printJson } from '../output.js';
 import { commandExists } from '../xvfb.js';
 import type { GlobalOptions } from './context.js';
@@ -54,46 +54,57 @@ function reachable(host: string, timeoutMs = 8000): Promise<boolean> {
 }
 
 function javaCheck(requiredMajor: number): Check {
-  // `java -version` reports on stderr, and some environments prepend a JAVA_TOOL_OPTIONS notice,
-  // so both streams are read and searched rather than just stdout.
-  const probe = spawnSync('java', ['-version'], { encoding: 'utf8' });
-  if (probe.error !== undefined && (probe.error as NodeJS.ErrnoException).code === 'ENOENT') {
+  // The JDK that matters is the one Gradle runs on, which is JAVA_HOME's -- not whatever `java`
+  // the PATH happens to resolve to first. A machine with a new `java` on the PATH and an older
+  // JAVA_HOME passes every naive check and then fails during Gradle configuration.
+  const current = gradleJava();
+  if (current.major === null) {
+    const missing = current.source === 'PATH' ? 'not found on PATH' : `not usable at ${current.home}`;
     return {
       name: 'java',
       ok: false,
-      detail: 'not found on PATH',
-      fix: 'Install a JDK 21, e.g. sudo apt-get install -y openjdk-21-jdk',
+      detail: `${missing} (this project needs Java ${requiredMajor})`,
+      fix:
+        `Install a JDK ${requiredMajor} and point JAVA_HOME at it:\n` +
+        `      sudo apt-get install -y openjdk-${requiredMajor}-jdk\n` +
+        `      export JAVA_HOME=/usr/lib/jvm/java-${requiredMajor}-openjdk-amd64`,
     };
   }
-  const output = `${probe.stdout ?? ''}\n${probe.stderr ?? ''}`;
 
-  const match = /version "(\d+)(?:\.(\d+))?/.exec(output);
-  const versionLine = output
-    .split('\n')
-    .map((entry) => entry.trim())
-    .find((entry) => entry.includes('version "'));
-  if (match === null) {
+  const where = current.home === null ? 'on PATH' : `from ${current.source}=${current.home}`;
+  if (current.major >= requiredMajor) {
     return {
       name: 'java',
-      ok: false,
-      detail: `could not parse the version from: ${output.trim().split('\n')[0] ?? '(no output)'}`,
-      fix: 'Make sure `java -version` works and reports Java 21 or newer.',
+      ok: true,
+      detail: `${current.versionLine ?? `Java ${current.major}`} ${where} (this project needs ${requiredMajor})`,
+      fix: '',
     };
   }
-  const major = Number(match[1]);
-  const ok = major >= requiredMajor;
+
+  // Too old, but `start` substitutes a good one when the machine has it, so this is a warning
+  // about the environment rather than a reason not to try.
+  const substitute = findJavaHome(requiredMajor);
+  if (substitute !== null) {
+    return {
+      name: 'java',
+      ok: true,
+      detail:
+        `Java ${current.major} ${where} is too old for this project, which needs ${requiredMajor}; ` +
+        `Gradle will be run on ${substitute.home} (Java ${substitute.major}) instead`,
+      fix: '',
+    };
+  }
   return {
     name: 'java',
-    ok,
-    detail: `${versionLine ?? `Java ${major}`} (this project needs ${requiredMajor})`,
-    fix: ok
-      ? ''
-      : `This project needs Java ${requiredMajor}, but Gradle would run on Java ${major}. ` +
-        `Install it and point JAVA_HOME at it:\n` +
-        `      sudo apt-get install -y openjdk-${requiredMajor}-jdk\n` +
-        `      export JAVA_HOME=/usr/lib/jvm/java-${requiredMajor}-openjdk-amd64\n` +
-        '    A Gradle toolchain is not enough here: the loader plugins refuse to configure when ' +
-        'Gradle itself runs on an older JDK than the Minecraft version needs.',
+    ok: false,
+    detail: `Java ${current.major} ${where} (this project needs ${requiredMajor})`,
+    fix:
+      `This project needs Java ${requiredMajor}, but Gradle would run on Java ${current.major}, ` +
+      'and no newer JDK was found in the usual places. Install it and point JAVA_HOME at it:\n' +
+      `      sudo apt-get install -y openjdk-${requiredMajor}-jdk\n` +
+      `      export JAVA_HOME=/usr/lib/jvm/java-${requiredMajor}-openjdk-amd64\n` +
+      '    A Gradle toolchain is not enough here: the loader plugins refuse to configure when ' +
+      'Gradle itself runs on an older JDK than the Minecraft version needs.',
   };
 }
 
@@ -104,8 +115,7 @@ export async function collectChecks(
   const checks: Check[] = [];
   // The required Java version is a property of the project, not a constant: Minecraft 1.21 needs
   // 21 and 26 needs 25, and the loader plugins check the JDK Gradle itself runs on.
-  const declaredJava = Number(readGradleProperties(projectDir)['java_version'] ?? '21');
-  checks.push(javaCheck(Number.isNaN(declaredJava) ? 21 : declaredJava));
+  checks.push(javaCheck(declaredJavaVersion(readGradleProperties(projectDir))));
 
   checks.push({
     name: 'node',

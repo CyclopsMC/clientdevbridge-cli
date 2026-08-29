@@ -20,14 +20,22 @@ const baseOptions = {
 };
 
 describe('renderInitScript', () => {
-  it('injects the resolved coordinate for every supported loader plugin', () => {
-    const script = renderInitScript(baseOptions);
-    expect(script).toContain("'org.cyclops.clientdevbridge:clientdevbridge-1.21.1-neoforge:1.0.0-DEV'");
-    // Both Loom plugin ids: it was renamed between the 1.21 and 26 toolchains.
-    expect(script).toContain("'fabric-loom'");
-    expect(script).toContain("'net.fabricmc.fabric-loom'");
-    expect(script).toContain("'net.neoforged.gradle.userdev'");
-    expect(script).toContain("'net.neoforged.moddev'");
+  it('injects the resolved coordinate for the loader being launched', () => {
+    expect(renderInitScript(baseOptions)).toContain(
+      "'org.cyclops.clientdevbridge:clientdevbridge-1.21.1-neoforge:1.0.0-DEV'",
+    );
+    expect(renderInitScript({ ...baseOptions, loader: 'fabric' })).toContain(
+      "'org.cyclops.clientdevbridge:clientdevbridge-1.21.1-fabric:1.0.0-DEV'",
+    );
+  });
+
+  it('never asks Gradle which loader plugin is applied', () => {
+    // Registering a plugins.withId callback for Loom's id -- even an empty one -- makes Loom 1.15
+    // set Minecraft up before the build script's dependencies block has run, and the build fails
+    // with "Configuration 'mappings' has no dependencies". The CLI already knows the loader.
+    for (const loader of ['fabric', 'neoforge'] as const) {
+      expect(renderInitScript({ ...baseOptions, loader })).not.toContain('project.plugins.withId(');
+    }
   });
 
   it('defers the dependency additions until after evaluation', () => {
@@ -38,9 +46,17 @@ describe('renderInitScript', () => {
 
   it('looks the Loom runtime configuration up rather than assuming one', () => {
     // Loom dropped modLocalRuntime between the 1.21 and 26 toolchains, so hardcoding it breaks.
-    const script = renderInitScript(baseOptions);
+    const script = renderInitScript({ ...baseOptions, loader: 'fabric' });
     expect(script).toContain('firstExisting');
     expect(script).toContain("'modLocalRuntime', 'localRuntime', 'runtimeOnly'");
+  });
+
+  it('puts a NeoForge mod on the plain runtime classpath', () => {
+    // ModDevGradle 2 rejects additionalRuntimeClasspath outright and both NeoForge plugins find
+    // mods on the runtime classpath, so there is nothing to look up on that side.
+    const script = renderInitScript(baseOptions);
+    expect(script).toContain("project.dependencies.add('runtimeOnly', clientDevBridgeDependency)");
+    expect(script).not.toContain('firstExisting');
   });
 
   it('only injects into the module being launched', () => {

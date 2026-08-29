@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
 import { CliError, SessionError } from './errors.js';
+import { resolveJavaHome } from './java.js';
 import { detectProject, type Loader } from './detect.js';
 import { pinOptions, renderInitScript } from './initscript.js';
 import { ensureDirectories, ensureGitignore, resolvePaths } from './paths.js';
@@ -246,11 +247,27 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   fs.writeFileSync(paths.gradleLog, '', 'utf8');
   const logStream = fs.openSync(paths.gradleLog, 'a');
 
+  // Gradle runs on JAVA_HOME, not on whatever `java` the PATH resolves to, and the loader plugins
+  // check that JDK rather than the toolchain: Loom refuses to configure a Minecraft 26 project on
+  // Java 21, during configuration, with an error that never mentions JAVA_HOME. Point Gradle at a
+  // JDK that satisfies the project when the environment's own does not.
+  const java = resolveJavaHome(project.javaVersion);
+  if (java.substituted) {
+    options.onProgress?.(
+      `This project needs Java ${project.javaVersion}; running Gradle on ${java.javaHome} ` +
+        `(Java ${java.probe.major}) instead of the environment's own.`,
+    );
+  }
+
   const child = spawn(display.command, args, {
     cwd: project.projectDir,
     detached: true,
     stdio: ['ignore', logStream, logStream],
-    env: { ...process.env, ...display.env },
+    env: {
+      ...process.env,
+      ...(java.javaHome === null ? {} : { JAVA_HOME: java.javaHome }),
+      ...display.env,
+    },
   });
   child.unref();
 

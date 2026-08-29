@@ -13,6 +13,11 @@ export interface ProjectInfo {
   /** Where that task's working directory is, used to pin `options.txt`. */
   readonly runDir: string;
   readonly gradleWrapper: string;
+  /**
+   * The Java version the project declares. The loader plugins check the JDK Gradle itself runs on,
+   * so this is not a toolchain hint that Gradle can satisfy on its own.
+   */
+  readonly javaVersion: number;
   /** How each value was arrived at, so `doctor` can explain itself. */
   readonly detected: { minecraftVersion: string; loader: string; gradleTask: string };
 }
@@ -125,6 +130,12 @@ export function detectRunDir(baseDir: string): string {
   return best?.dir ?? candidates[0]!;
 }
 
+/** Minecraft 1.21 needs Java 21 and Minecraft 26 needs 25; the project states which. */
+export function declaredJavaVersion(properties: Record<string, string>): number {
+  const declared = Number(properties['java_version'] ?? '21');
+  return Number.isNaN(declared) ? 21 : declared;
+}
+
 export interface DetectOverrides {
   readonly minecraftVersion?: string | undefined;
   readonly loader?: Loader | undefined;
@@ -178,6 +189,7 @@ export function detectProject(projectDir: string, overrides: DetectOverrides = {
     loader,
     gradleTask: task,
     runDir,
+    javaVersion: declaredJavaVersion(properties),
     gradleWrapper: wrapper,
     detected: {
       minecraftVersion:
