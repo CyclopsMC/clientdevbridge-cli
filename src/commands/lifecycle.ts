@@ -171,6 +171,7 @@ export async function runStatus(global: GlobalOptions): Promise<void> {
       ['fps', String(live['fps'])],
       ['gui size', `${live['guiWidth']}x${live['guiHeight']} @ scale ${live['guiScale']}`],
       ['pixel size', `${live['pixelWidth']}x${live['pixelHeight']}`],
+      ['game dir', String(live['gameDir'] ?? '-')],
     ]);
   } else if (connectError !== null) {
     line('');

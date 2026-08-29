@@ -276,7 +276,22 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   };
   writeSession(paths, session);
 
-  const hello = await waitForHandshake(session, paths.gradleLog, options.timeoutMs, options.onProgress);
+  const { hello, gameDir } = await waitForHandshake(
+    session,
+    paths.gradleLog,
+    options.timeoutMs,
+    options.onProgress,
+  );
+  if (options.pinOptions && gameDir !== null && path.resolve(gameDir) !== path.resolve(project.runDir)) {
+    // The guess was wrong, so this run is not pinned. Pin the directory the client actually named,
+    // which is also what `detectRunDir` will find next time, and say so rather than let the next
+    // screenshot comparison fail for a reason nothing points at.
+    pinOptions(gameDir);
+    options.onProgress?.(
+      `The client runs in ${gameDir}, not ${project.runDir}. Pinned the determinism options there; ` +
+        'restart to apply them to a running client.',
+    );
+  }
   return { session, hello };
 }
 
@@ -323,7 +338,7 @@ async function waitForHandshake(
   gradleLog: string,
   timeoutMs: number,
   onProgress?: (line: string) => void,
-): Promise<unknown> {
+): Promise<{ hello: unknown; gameDir: string | null }> {
   const deadline = Date.now() + timeoutMs;
   let lastReport = 0;
 
@@ -343,9 +358,10 @@ async function waitForHandshake(
         const status = await client.call<Record<string, unknown>>('status', {}, 10_000);
         const ready = status['loaded'] === true;
         const hello = client.hello;
+        const reported = status['gameDir'];
         client.close();
         if (ready) {
-          return hello;
+          return { hello, gameDir: typeof reported === 'string' ? reported : null };
         }
       } catch {
         // The port is open but the handshake or status is not ready; keep waiting.

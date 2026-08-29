@@ -80,12 +80,49 @@ export function detectLoaders(projectDir: string): Loader[] {
 export function detectGradleTask(projectDir: string, loader: Loader): { task: string; runDir: string } {
   const moduleName = `loader-${loader}`;
   if (fs.existsSync(path.join(projectDir, moduleName))) {
-    return {
-      task: `:${moduleName}:runClient`,
-      runDir: path.join(projectDir, moduleName, 'runs', 'client'),
-    };
+    const moduleDir = path.join(projectDir, moduleName);
+    return { task: `:${moduleName}:runClient`, runDir: detectRunDir(moduleDir) };
   }
-  return { task: 'runClient', runDir: path.join(projectDir, 'run') };
+  return { task: 'runClient', runDir: detectRunDir(projectDir) };
+}
+
+/**
+ * Files and directories only the game itself creates. `options.txt` is deliberately not among
+ * them: the CLI writes that one, so finding it proves nothing about where the game runs.
+ */
+const RUN_DIR_EVIDENCE = ['logs', 'saves', 'crash-reports', 'usercache.json'];
+
+/**
+ * Picks the directory the client will use as its game directory.
+ *
+ * There is no single answer to guess at: the run directory is chosen by the Gradle plugin, and the
+ * conventions disagree. NeoGradle and the multiloader Loom convention use `runs/client`;
+ * ModDevGradle 2, which is what the Minecraft 26 line builds on, uses `run`. Getting this wrong is
+ * not loud — the determinism options are simply pinned into a file the game never reads, and the
+ * first hint is a screenshot that does not match its golden.
+ *
+ * So: believe the evidence on disk when a previous run left some, and fall back to the convention
+ * order otherwise. `start` corrects a wrong guess against the game directory the client reports
+ * once it is up.
+ */
+export function detectRunDir(baseDir: string): string {
+  const candidates = [path.join(baseDir, 'runs', 'client'), path.join(baseDir, 'run')];
+  let best: { dir: string; usedAt: number } | null = null;
+  for (const candidate of candidates) {
+    for (const marker of RUN_DIR_EVIDENCE) {
+      let usedAt: number;
+      try {
+        usedAt = fs.statSync(path.join(candidate, marker)).mtimeMs;
+      } catch {
+        continue;
+      }
+      // A checkout that switched Gradle plugins has both; the one used most recently is the live one.
+      if (best === null || usedAt > best.usedAt) {
+        best = { dir: candidate, usedAt };
+      }
+    }
+  }
+  return best?.dir ?? candidates[0]!;
 }
 
 export interface DetectOverrides {

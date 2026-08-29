@@ -2,7 +2,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { detectGradleTask, detectLoaders, detectProject, readGradleProperties } from '../src/detect.js';
+import {
+  detectGradleTask,
+  detectLoaders,
+  detectProject,
+  detectRunDir,
+  readGradleProperties,
+} from '../src/detect.js';
 import { CliError } from '../src/errors.js';
 
 let directory: string;
@@ -58,6 +64,31 @@ describe('detectGradleTask', () => {
 
   it('falls back to a plain runClient for a single-module mod', () => {
     expect(detectGradleTask(directory, 'fabric').task).toBe('runClient');
+  });
+});
+
+describe('detectRunDir', () => {
+  it('assumes runs/client when nothing has run yet', () => {
+    expect(detectRunDir(directory)).toBe(path.join(directory, 'runs', 'client'));
+  });
+
+  it('believes the directory a previous run left traces in', () => {
+    // ModDevGradle 2, which the Minecraft 26 line builds on, runs the client in `run`.
+    write('run/logs/latest.log', '');
+    expect(detectRunDir(directory)).toBe(path.join(directory, 'run'));
+  });
+
+  it('ignores an options.txt, which the CLI writes itself', () => {
+    write('run/options.txt', '');
+    expect(detectRunDir(directory)).toBe(path.join(directory, 'runs', 'client'));
+  });
+
+  it('picks the most recently used one when a checkout has both', () => {
+    write('runs/client/logs/latest.log', '');
+    write('run/logs/latest.log', '');
+    const older = new Date(Date.now() - 60_000);
+    fs.utimesSync(path.join(directory, 'runs', 'client', 'logs'), older, older);
+    expect(detectRunDir(directory)).toBe(path.join(directory, 'run'));
   });
 });
 
