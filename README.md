@@ -66,7 +66,9 @@ missing.
 This package is **version-agnostic and single-branch**. The wire protocol is identical on every
 ClientDevBridge branch, so one CLI release drives every supported Minecraft version. The only
 version knowledge it holds is which branch publishes builds for which Minecraft version, in
-`src/artifacts.ts`.
+`src/artifacts.ts` — today the 1.21, 26 LTS and 26 lines. That file is the authority rather than
+this paragraph, and `clientdevbridge doctor` prints which branch it picked for the project in
+front of you, so neither has to be trusted from memory.
 
 ## Development
 
