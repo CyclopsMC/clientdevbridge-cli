@@ -100,18 +100,28 @@ allprojects { project ->
         return 'runtimeOnly'
     }
 
+    // The additions are deferred to afterEvaluate on purpose. A plugins.withId callback fires while
+    // the build script's plugins { } block is still running -- before its dependencies { } block has
+    // declared anything -- and adding to a Loom-managed configuration that early makes Loom set
+    // Minecraft up before its own minecraft and mappings configurations have been populated,
+    // which it reports as "Configuration 'mappings' has no dependencies".
+    def loomApplied = false
     ['fabric-loom', 'net.fabricmc.fabric-loom'].each { loomId ->
-        project.plugins.withId(loomId) {
-            def modConfiguration = firstExisting('modLocalRuntime', 'localRuntime', 'runtimeOnly')
-            project.dependencies.add(modConfiguration, clientDevBridgeDependency)
-            // Groovy is a plain library, not a mod, so it must never go through Loom's remapping.
-            project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
-        }
+        project.plugins.withId(loomId) { loomApplied = true }
+    }
+    def neoApplied = false
+    ['net.neoforged.gradle.userdev', 'net.neoforged.moddev'].each { neoId ->
+        project.plugins.withId(neoId) { neoApplied = true }
     }
 
-    // NeoGradle and ModDevGradle discover mods from the runtime classpath directly.
-    ['net.neoforged.gradle.userdev', 'net.neoforged.moddev'].each { neoId ->
-        project.plugins.withId(neoId) {
+    project.afterEvaluate {
+        if (loomApplied) {
+            project.dependencies.add(firstExisting('modLocalRuntime', 'localRuntime', 'runtimeOnly'),
+                    clientDevBridgeDependency)
+            // Groovy is a plain library, not a mod, so it must never go through Loom's remapping.
+            project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
+        } else if (neoApplied) {
+            // NeoGradle and ModDevGradle discover mods from the runtime classpath directly.
             def configuration = firstExisting('additionalRuntimeClasspath', 'localRuntime', 'runtimeOnly')
             project.dependencies.add(configuration, clientDevBridgeDependency)
             project.dependencies.add(configuration, clientDevBridgeGroovy)

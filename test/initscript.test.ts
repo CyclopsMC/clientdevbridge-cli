@@ -29,6 +29,12 @@ describe('renderInitScript', () => {
     expect(script).toContain("'net.neoforged.moddev'");
   });
 
+  it('defers the dependency additions until after evaluation', () => {
+    // Adding to a Loom-managed configuration from a plugins.withId callback runs before the build
+    // script's dependencies block, which makes Loom set Minecraft up too early.
+    expect(renderInitScript(baseOptions)).toContain('project.afterEvaluate {');
+  });
+
   it('looks the runtime configuration up rather than assuming one', () => {
     // Loom dropped modLocalRuntime and ModDevGradle added additionalRuntimeClasspath, so hardcoding
     // either one breaks on some supported Minecraft version.
