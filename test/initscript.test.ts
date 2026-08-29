@@ -19,12 +19,23 @@ const baseOptions = {
 };
 
 describe('renderInitScript', () => {
-  it('injects the resolved coordinate into each loader plugin block', () => {
+  it('injects the resolved coordinate for every supported loader plugin', () => {
     const script = renderInitScript(baseOptions);
     expect(script).toContain("'org.cyclops.clientdevbridge:clientdevbridge-1.21.1-neoforge:1.0.0-DEV'");
-    expect(script).toContain("project.plugins.withId('fabric-loom')");
-    expect(script).toContain("project.plugins.withId('net.neoforged.gradle.userdev')");
-    expect(script).toContain("project.dependencies.add('modLocalRuntime'");
+    // Both Loom plugin ids: it was renamed between the 1.21 and 26 toolchains.
+    expect(script).toContain("'fabric-loom'");
+    expect(script).toContain("'net.fabricmc.fabric-loom'");
+    expect(script).toContain("'net.neoforged.gradle.userdev'");
+    expect(script).toContain("'net.neoforged.moddev'");
+  });
+
+  it('looks the runtime configuration up rather than assuming one', () => {
+    // Loom dropped modLocalRuntime and ModDevGradle added additionalRuntimeClasspath, so hardcoding
+    // either one breaks on some supported Minecraft version.
+    const script = renderInitScript(baseOptions);
+    expect(script).toContain('firstExisting');
+    expect(script).toContain("'modLocalRuntime', 'localRuntime', 'runtimeOnly'");
+    expect(script).toContain("'additionalRuntimeClasspath', 'localRuntime', 'runtimeOnly'");
   });
 
   it('enables the bridge and pins the port', () => {

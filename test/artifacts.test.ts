@@ -7,9 +7,11 @@ describe('artifact resolution', () => {
     expect(findLine('1.21')?.branch).toBe('master-1.21-lts');
   });
 
-  it('maps the newer lines by pattern, so a point release needs no CLI change', () => {
-    expect(findLine('26.1.0')?.branch).toBe('master-26');
-    expect(findLine('26.2.3-lts')?.branch).toBe('master-26-lts');
+  it('maps the 26 LTS point releases to the LTS branch, and anything newer to the trunk one', () => {
+    expect(findLine('26.1.2')?.branch).toBe('master-26-lts');
+    expect(findLine('26.1')?.branch).toBe('master-26-lts');
+    expect(findLine('26.2')?.branch).toBe('master-26');
+    expect(findLine('26.3.1')?.branch).toBe('master-26');
   });
 
   it('returns nothing for a version no branch covers', () => {

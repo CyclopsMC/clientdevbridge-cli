@@ -20,10 +20,12 @@ export interface ArtifactLine {
 
 export const GROUP = 'org.cyclops.clientdevbridge';
 
+// Order matters: the first matching line wins, so the LTS lines are listed before the trunk one.
+// The LTS branch tracks a specific point release (26.1.x); the trunk branch is everything newer.
 export const ARTIFACT_LINES: readonly ArtifactLine[] = [
   { branch: 'master-1.21-lts', minecraftVersions: ['1.21.1'], matches: /^1\.21(\.1)?$/ },
-  { branch: 'master-26-lts', minecraftVersions: [], matches: /^26\.\d+\.\d+-lts$/ },
-  { branch: 'master-26', minecraftVersions: [], matches: /^26\./ },
+  { branch: 'master-26-lts', minecraftVersions: ['26.1.2'], matches: /^26\.1(\.\d+)?$/ },
+  { branch: 'master-26', minecraftVersions: ['26.2'], matches: /^26\./ },
 ];
 
 export function findLine(minecraftVersion: string): ArtifactLine | undefined {

@@ -87,23 +87,35 @@ allprojects { project ->
         }
     }
 
-    // Loom remaps mods on the dev runtime classpath, so the Fabric build has to go through
-    // its own configuration rather than a plain runtimeOnly.
-    project.plugins.withId('fabric-loom') {
-        project.dependencies.add('modLocalRuntime', clientDevBridgeDependency)
-        // Groovy is a plain library, not a mod, so it must not go through Loom's remapping.
-        project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
+    // Which configuration a runtime mod belongs in differs by loader and by plugin generation --
+    // Loom dropped modLocalRuntime, ModDevGradle added additionalRuntimeClasspath -- so the
+    // configuration is looked up rather than assumed. That keeps this script working across every
+    // supported Minecraft version without the CLI having to know which toolchain each one uses.
+    def firstExisting = { String... names ->
+        for (String candidate : names) {
+            if (project.configurations.findByName(candidate) != null) {
+                return candidate
+            }
+        }
+        return 'runtimeOnly'
     }
+
+    ['fabric-loom', 'net.fabricmc.fabric-loom'].each { loomId ->
+        project.plugins.withId(loomId) {
+            def modConfiguration = firstExisting('modLocalRuntime', 'localRuntime', 'runtimeOnly')
+            project.dependencies.add(modConfiguration, clientDevBridgeDependency)
+            // Groovy is a plain library, not a mod, so it must never go through Loom's remapping.
+            project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
+        }
+    }
+
     // NeoGradle and ModDevGradle discover mods from the runtime classpath directly.
-    project.plugins.withId('net.neoforged.gradle.userdev') {
-        project.dependencies.add('runtimeOnly', clientDevBridgeDependency)
-        project.dependencies.add('runtimeOnly', clientDevBridgeGroovy)
-    }
-    project.plugins.withId('net.neoforged.moddev') {
-        def configuration = project.configurations.findByName('additionalRuntimeClasspath') != null
-                ? 'additionalRuntimeClasspath' : 'runtimeOnly'
-        project.dependencies.add(configuration, clientDevBridgeDependency)
-        project.dependencies.add(configuration, clientDevBridgeGroovy)
+    ['net.neoforged.gradle.userdev', 'net.neoforged.moddev'].each { neoId ->
+        project.plugins.withId(neoId) {
+            def configuration = firstExisting('additionalRuntimeClasspath', 'localRuntime', 'runtimeOnly')
+            project.dependencies.add(configuration, clientDevBridgeDependency)
+            project.dependencies.add(configuration, clientDevBridgeGroovy)
+        }
     }
 
     project.tasks.matching { it.name == 'runClient' }.configureEach { task ->
