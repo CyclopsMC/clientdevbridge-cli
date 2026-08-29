@@ -84,6 +84,12 @@ ${programArgs.map((arg) => `        ${groovyString(arg)}`).join(',\n')}
 ]
 
 allprojects { project ->
+    // Nothing at all is done to the modules that are not being launched. Adding even a repository
+    // to Loom's project is enough to change how it resolves its own mappings.
+    if (project.path != clientDevBridgeTarget) {
+        return
+    }
+
     project.repositories {
         // mavenLocal first, so that a developer working on ClientDevBridge itself picks up
         // their own './gradlew publishToMavenLocal' build ahead of any released one.
@@ -123,10 +129,6 @@ allprojects { project ->
     def neoApplied = false
     ['net.neoforged.gradle.userdev', 'net.neoforged.moddev'].each { neoId ->
         project.plugins.withId(neoId) { neoApplied = true }
-    }
-
-    if (project.path != clientDevBridgeTarget) {
-        return
     }
 
     project.afterEvaluate {
