@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-29T20:22:45.232Z",
+  "recordedAt": "2026-08-29T23:15:26.349Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -73,23 +73,25 @@
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 1,
+        "id": 5,
         "method": "status",
         "params": {}
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 1,
+        "id": 5,
         "result": {
+          "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 233,
-          "fps": 1,
+          "tick": 187,
+          "fps": 4,
+          "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-fabric/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
             "pos": [
               0.5,
-              4,
+              4.535840625044555,
               4.5
             ],
             "yaw": 0,
@@ -107,7 +109,7 @@
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 2,
+        "id": 6,
         "method": "wait.ticks",
         "params": {
           "ticks": 2
@@ -115,16 +117,16 @@
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 2,
+        "id": 6,
         "result": {
-          "tick": 235
+          "tick": 189
         }
       }
     },
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 3,
+        "id": 7,
         "method": "log.tail",
         "params": {
           "lines": 2,
@@ -133,27 +135,27 @@
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 3,
+        "id": 7,
         "result": {
           "lines": [
             "[ERROR] [net.minecraft.client.sounds.SoundEngine] Error starting SoundSystem. Turning off sounds & music | java.lang.IllegalStateException: Failed to open OpenAL device",
             "[WARN] [net.minecraft.client.renderer.ShaderInstance] Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program."
           ],
           "level": "warn",
-          "buffered": 1440
+          "buffered": 1454
         }
       }
     },
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 4,
+        "id": 8,
         "method": "screen.snapshot",
         "params": {}
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 4,
+        "id": 8,
         "result": {
           "guiScale": 2,
           "guiWidth": 427,
@@ -209,12 +211,7 @@
               {
                 "path": "/root/children[1]",
                 "type": "net.minecraft.client.gui.screens.recipebook.RecipeBookComponent",
-                "bounds": {
-                  "x": 0,
-                  "y": 0,
-                  "w": 0,
-                  "h": 0
-                },
+                "bounds": null,
                 "message": null,
                 "narration": null,
                 "visible": true,
@@ -222,7 +219,10 @@
                 "focused": false,
                 "hovered": false,
                 "value": null,
-                "extra": {},
+                "extra": {
+                  "boundsUnknown": true,
+                  "note": "This component reports no rectangle, so its position and its own children are not visible to the snapshot. Read a screenshot to see it, or click it by coordinate."
+                },
                 "children": []
               }
             ]
@@ -539,8 +539,10 @@
               },
               {
                 "index": 37,
-                "item": null,
-                "count": 0,
+                "item": "minecraft:diamond",
+                "count": 5,
+                "name": "Diamond",
+                "components": "{minecraft:max_stack_size=>64, minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:enchantments=>ItemEnchantments{enchantments={}, showInTooltip=true}, minecraft:repair_cost=>0, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[], showInTooltip=true], minecraft:rarity=>COMMON}",
                 "x": 133,
                 "y": 179,
                 "hovered": false
@@ -617,13 +619,13 @@
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 5,
+        "id": 9,
         "method": "nope.does.not.exist",
         "params": {}
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 5,
+        "id": 9,
         "error": {
           "code": -32601,
           "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
@@ -633,7 +635,7 @@
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 6,
+        "id": 10,
         "method": "wait.ticks",
         "params": {
           "ticks": -1
@@ -641,7 +643,7 @@
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 6,
+        "id": 10,
         "error": {
           "code": -32602,
           "message": "Parameter 'ticks' must not be negative, but was -1"
@@ -651,7 +653,7 @@
     {
       "request": {
         "jsonrpc": "2.0",
-        "id": 7,
+        "id": 11,
         "method": "wait.ticks",
         "params": {
           "notTicks": 1
@@ -659,7 +661,7 @@
       },
       "response": {
         "jsonrpc": "2.0",
-        "id": 7,
+        "id": 11,
         "error": {
           "code": -32602,
           "message": "Missing required parameter 'ticks'"

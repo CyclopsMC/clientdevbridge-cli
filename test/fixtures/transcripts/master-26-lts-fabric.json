@@ -1,19 +1,66 @@
 {
-  "recordedAt": "2026-08-29T23:14:12.368Z",
+  "recordedAt": "2026-08-29T23:17:19.990Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
     "params": {
       "protocol": 1,
-      "mcVersion": "1.21.1",
-      "loader": "neoforge",
+      "mcVersion": "26.1.2",
+      "loader": "fabric",
       "clientDevBridgeVersion": "1.0.0",
       "evalEnabled": true,
       "mods": [
         "cdbconsumer",
         "clientdevbridge",
+        "fabric-api",
+        "fabric-api-base",
+        "fabric-api-lookup-api-v1",
+        "fabric-biome-api-v1",
+        "fabric-block-api-v1",
+        "fabric-block-getter-api-v2",
+        "fabric-client-gametest-api-v1",
+        "fabric-command-api-v2",
+        "fabric-content-registries-v0",
+        "fabric-convention-tags-v2",
+        "fabric-crash-report-info-v1",
+        "fabric-creative-tab-api-v1",
+        "fabric-data-attachment-api-v1",
+        "fabric-data-generation-api-v1",
+        "fabric-debug-api-v1",
+        "fabric-dimensions-v1",
+        "fabric-entity-events-v1",
+        "fabric-events-interaction-v0",
+        "fabric-game-rule-api-v1",
+        "fabric-gametest-api-v1",
+        "fabric-item-api-v1",
+        "fabric-key-mapping-api-v1",
+        "fabric-lifecycle-events-v1",
+        "fabric-loot-api-v3",
+        "fabric-menu-api-v1",
+        "fabric-message-api-v1",
+        "fabric-model-loading-api-v1",
+        "fabric-networking-api-v1",
+        "fabric-object-builder-api-v1",
+        "fabric-particles-v1",
+        "fabric-recipe-api-v1",
+        "fabric-registry-sync-v0",
+        "fabric-renderer-api-v1",
+        "fabric-renderer-indigo",
+        "fabric-rendering-fluids-v1",
+        "fabric-rendering-v1",
+        "fabric-resource-conditions-api-v1",
+        "fabric-resource-loader-v0",
+        "fabric-resource-loader-v1",
+        "fabric-screen-api-v1",
+        "fabric-serialization-api-v1",
+        "fabric-sound-api-v1",
+        "fabric-tag-api-v1",
+        "fabric-transfer-api-v1",
+        "fabric-transitive-access-wideners-v1",
+        "fabricloader",
+        "java",
         "minecraft",
-        "neoforge"
+        "mixinextras"
       ]
     }
   },
@@ -32,9 +79,9 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 120,
-          "fps": 1,
-          "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-neoforge/runs/client",
+          "tick": 224,
+          "fps": 2,
+          "gameDir": "/home/user/cdb-26/e2e/consumer/loader-fabric/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
             "pos": [
@@ -45,7 +92,7 @@
             "yaw": 0,
             "pitch": 30
           },
-          "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits) GL version 4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2, Mesa",
           "guiScale": 2,
           "guiWidth": 427,
           "guiHeight": 240,
@@ -67,7 +114,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 123
+          "tick": 226
         }
       }
     },
@@ -86,11 +133,11 @@
         "id": 7,
         "result": {
           "lines": [
-            "[ERROR] [net.minecraft.client.sounds.SoundEngine] Error starting SoundSystem. Turning off sounds & music | java.lang.IllegalStateException: Failed to open OpenAL device",
-            "[WARN] [net.minecraft.client.renderer.ShaderInstance] Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program."
+            "[ERROR] [com.mojang.blaze3d.platform.Window] @ Render",
+            "[ERROR] [com.mojang.blaze3d.platform.Window] 65547: X11: Standard cursor shape unavailable"
           ],
           "level": "warn",
-          "buffered": 1633
+          "buffered": 1185
         }
       }
     },
@@ -151,14 +198,14 @@
                 "hovered": false,
                 "value": null,
                 "extra": {
-                  "component": "\"\"",
+                  "component": "",
                   "kind": "imageButton"
                 },
                 "children": []
               },
               {
                 "path": "/root/children[1]",
-                "type": "net.minecraft.client.gui.screens.recipebook.RecipeBookComponent",
+                "type": "net.minecraft.client.gui.screens.recipebook.CraftingRecipeBookComponent",
                 "bounds": null,
                 "message": null,
                 "narration": null,
@@ -490,7 +537,7 @@
                 "item": "minecraft:diamond",
                 "count": 5,
                 "name": "Diamond",
-                "components": "{minecraft:max_stack_size=>64, minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:enchantments=>ItemEnchantments{enchantments={}, showInTooltip=true}, minecraft:repair_cost=>0, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[], showInTooltip=true], minecraft:rarity=>COMMON}",
+                "components": "{minecraft:break_sound=>Reference{ResourceKey[minecraft:sound_event / minecraft:entity.item.break]=SoundEvent[location=minecraft:entity.item.break, fixedRange=Optional.empty]}, minecraft:max_stack_size=>64, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[]], minecraft:tooltip_display=>TooltipDisplay[hideTooltip=false, hiddenComponents={}], minecraft:item_name=>translation{key='item.minecraft.diamond', args=[]}, minecraft:enchantments=>ItemEnchantments{enchantments={}}, minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:use_effects=>UseEffects[canSprint=false, interactVibrations=true, speedMultiplier=0.2], minecraft:rarity=>COMMON, minecraft:swing_animation=>SwingAnimation[type=WHACK, duration=6], minecraft:item_model=>minecraft:diamond, minecraft:provides_trim_material=>Reference{ResourceKey[minecraft:trim_material / minecraft:diamond]=TrimMaterial[assets=MaterialAssetGroup[base=AssetInfo[suffix=diamond], overrides={ResourceKey[minecraft:equipment_asset / minecraft:diamond]=AssetInfo[suffix=diamond_darker]}], description=translation{key='trim_material.minecraft.diamond', args=[]}[style={color=#6EECD2}]]}, minecraft:repair_cost=>0}",
                 "x": 133,
                 "y": 179,
                 "hovered": false

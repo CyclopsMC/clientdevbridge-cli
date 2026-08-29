@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-08-29T23:14:12.368Z",
+  "recordedAt": "2026-08-29T23:16:23.974Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
     "params": {
       "protocol": 1,
-      "mcVersion": "1.21.1",
+      "mcVersion": "26.1.2",
       "loader": "neoforge",
       "clientDevBridgeVersion": "1.0.0",
       "evalEnabled": true,
@@ -32,9 +32,9 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 120,
-          "fps": 1,
-          "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-neoforge/runs/client",
+          "tick": 156,
+          "fps": 4,
+          "gameDir": "/home/user/cdb-26/e2e/consumer/loader-neoforge/run",
           "dimension": "minecraft:overworld",
           "player": {
             "pos": [
@@ -45,7 +45,7 @@
             "yaw": 0,
             "pitch": 30
           },
-          "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits) GL version 4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2, Mesa",
           "guiScale": 2,
           "guiWidth": 427,
           "guiHeight": 240,
@@ -67,7 +67,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 123
+          "tick": 158
         }
       }
     },
@@ -87,10 +87,10 @@
         "result": {
           "lines": [
             "[ERROR] [net.minecraft.client.sounds.SoundEngine] Error starting SoundSystem. Turning off sounds & music | java.lang.IllegalStateException: Failed to open OpenAL device",
-            "[WARN] [net.minecraft.client.renderer.ShaderInstance] Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program."
+            "[WARN] [net.minecraft.client.multiplayer.ClientPacketListener] Ignoring chat session from ClientDevBridge due to missing Services public key"
           ],
           "level": "warn",
-          "buffered": 1633
+          "buffered": 63
         }
       }
     },
@@ -151,14 +151,14 @@
                 "hovered": false,
                 "value": null,
                 "extra": {
-                  "component": "\"\"",
+                  "component": "",
                   "kind": "imageButton"
                 },
                 "children": []
               },
               {
                 "path": "/root/children[1]",
-                "type": "net.minecraft.client.gui.screens.recipebook.RecipeBookComponent",
+                "type": "net.minecraft.client.gui.screens.recipebook.CraftingRecipeBookComponent",
                 "bounds": null,
                 "message": null,
                 "narration": null,
@@ -490,7 +490,7 @@
                 "item": "minecraft:diamond",
                 "count": 5,
                 "name": "Diamond",
-                "components": "{minecraft:max_stack_size=>64, minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:enchantments=>ItemEnchantments{enchantments={}, showInTooltip=true}, minecraft:repair_cost=>0, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[], showInTooltip=true], minecraft:rarity=>COMMON}",
+                "components": "{minecraft:item_model=>minecraft:diamond, minecraft:provides_trim_material=>Reference{ResourceKey[minecraft:trim_material / minecraft:diamond]=TrimMaterial[assets=MaterialAssetGroup[base=AssetInfo[suffix=diamond], overrides={ResourceKey[minecraft:equipment_asset / minecraft:diamond]=AssetInfo[suffix=diamond_darker]}], description=translation{key='trim_material.minecraft.diamond', args=[]}[style={color=#6EECD2}]]}, minecraft:rarity=>COMMON, minecraft:enchantments=>ItemEnchantments{enchantments={}}, minecraft:break_sound=>Reference{ResourceKey[minecraft:sound_event / minecraft:entity.item.break]=SoundEvent[location=minecraft:entity.item.break, fixedRange=Optional.empty]}, minecraft:swing_animation=>SwingAnimation[type=WHACK, duration=6], minecraft:tooltip_display=>TooltipDisplay[hideTooltip=false, hiddenComponents={}], minecraft:item_name=>translation{key='item.minecraft.diamond', args=[]}, minecraft:use_effects=>UseEffects[canSprint=false, interactVibrations=true, speedMultiplier=0.2], minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:repair_cost=>0, minecraft:max_stack_size=>64, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[]]}",
                 "x": 133,
                 "y": 179,
                 "hovered": false

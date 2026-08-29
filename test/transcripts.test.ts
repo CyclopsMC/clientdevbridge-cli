@@ -9,6 +9,7 @@ import { SUPPORTED_PROTOCOL } from '../src/protocol/types.js';
 import { snapshotSchema } from '../src/snapshot/model.js';
 import { formatOutline } from '../src/snapshot/outline.js';
 import { ProtocolError, SessionError } from '../src/errors.js';
+import { ARTIFACT_LINES } from '../src/artifacts.js';
 
 const FIXTURE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'transcripts');
 
@@ -89,6 +90,31 @@ describe('recorded transcripts', () => {
     expect(fixtures.length).toBeGreaterThan(0);
   });
 
+  it('covers every supported Minecraft line on both loaders', () => {
+    // A release that has only been recorded against one branch proves nothing about the others,
+    // and the whole point of these fixtures is to check a CLI release against all of them.
+    const recorded = new Set(
+      fixtures.map((fixture) => {
+        const transcript = JSON.parse(
+          fs.readFileSync(path.join(FIXTURE_DIR, fixture), 'utf8'),
+        ) as Transcript;
+        return `${String(transcript.hello.params['mcVersion'])}/${String(transcript.hello.params['loader'])}`;
+      }),
+    );
+    for (const line of ARTIFACT_LINES) {
+      for (const version of line.minecraftVersions) {
+        for (const loader of ['fabric', 'neoforge']) {
+          // A line whose branch does not exist yet has nothing to record; only complain about a
+          // half-recorded one, where one loader was done and the other forgotten.
+          const other = loader === 'fabric' ? 'neoforge' : 'fabric';
+          if (recorded.has(`${version}/${other}`)) {
+            expect(recorded).toContain(`${version}/${loader}`);
+          }
+        }
+      }
+    }
+  });
+
   for (const fixture of fixtures) {
     const transcript = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, fixture), 'utf8')) as Transcript;
 
@@ -105,6 +131,16 @@ describe('recorded transcripts', () => {
         expect(client.hello.loader).toBe(transcript.hello.params['loader']);
         expect(client.hello.mods).toContain('clientdevbridge');
         client.close();
+      });
+
+      it('was recorded with a container screen open', () => {
+        // A snapshot taken on the title screen exercises a few buttons and no container at all --
+        // no slots, no item stacks, no menu geometry -- which is most of what a snapshot is for.
+        // scripts/record-fixture.mjs opens a crafting table before recording; this is the check
+        // that a re-recording actually did.
+        const snapshot = transcript.calls.find((call) => call.request.method === 'screen.snapshot')
+          ?.response['result'] as { container?: { slots?: unknown[] } } | undefined;
+        expect(snapshot?.container?.slots?.length ?? 0).toBeGreaterThan(0);
       });
 
       it('parses every recorded success result', async () => {
