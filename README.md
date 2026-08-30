@@ -216,3 +216,6 @@ npm run lint
 `scripts/record-fixture.mjs` records a handshake and transcript from a running client into
 `test/fixtures/transcripts/`, which is how a CLI release is verified against every branch without
 booting the game.
+
+[`AGENTS.md`](AGENTS.md) is the guide for working on this repository: how it relates to the mod
+repository, which side a change belongs on, and what to re-record when the protocol grows.
