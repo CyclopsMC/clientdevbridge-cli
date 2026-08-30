@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+* `batch <file|->`, running many commands over a single connection. Every command otherwise opens a
+  socket, does one thing and closes it, which costs more than the work when a script issues fifty in
+  a row. It stops at the first failure with its line number; `--continue-on-error` runs the rest and
+  `--json` prints one result object per command.
+* `set-text <widget> <value> [--commit enter|tab|none]`, replacing a text field's contents in one
+  command instead of click, N backspaces, type, commit. The count comes from the snapshot rather
+  than a guess, and the value is read back afterwards.
+* `screenshot --diff <image.png> [--min-diff <pct>]`, the assertion `compare` cannot make: that
+  something on screen *did* change. Exits non-zero when the two captures are too similar.
+* `hotswap --restart-if-needed`, which restarts when a change cannot be redefined in place, with
+  the options the running client was launched with. Whether an edit is swappable is a HotSpot rule,
+  and a caller who wants their change live should not have to know it.
 * `use`, a right-click with the held item, for everything that leaves no screen behind: placing a
   block or a cable part, tools, wrenching with `--sneak`.
 * `--face` and `--at` on `use`, `open-gui` and `inspect-gui`, which say where on a block to aim.

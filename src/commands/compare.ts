@@ -130,12 +130,7 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
       return;
     }
 
-    const diff = new PNG({ width: golden.width, height: golden.height });
-    const pixelsDiff = pixelmatch(golden.data, actual.data, diff.data, golden.width, golden.height, {
-      threshold: Number(options.pixelThreshold),
-    });
-    const total = golden.width * golden.height;
-    const percentage = (pixelsDiff / total) * 100;
+    const { diff, pixelsDiff, total, percentage } = diffImages(golden, actual, Number(options.pixelThreshold));
     const allowed = Number(options.threshold);
     const match = percentage <= allowed;
 
@@ -233,14 +228,14 @@ function pruneDiffs(directory: string, name: string, keep = 10): void {
   }
 }
 
-interface PixelRegion {
+export interface PixelRegion {
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
 }
 
-function toPixelRegion(raw: Record<string, unknown>, guiScale: number): PixelRegion {
+export function toPixelRegion(raw: Record<string, unknown>, guiScale: number): PixelRegion {
   const factor = raw['space'] === 'pixel' ? 1 : guiScale;
   return {
     x: Math.round(Number(raw['x']) * factor),
@@ -251,8 +246,29 @@ function toPixelRegion(raw: Record<string, unknown>, guiScale: number): PixelReg
 }
 
 /** Cuts a rectangle out of a decoded PNG, so both sides of a comparison can be narrowed alike. */
-function crop(image: PNG, region: PixelRegion): PNG {
+export function crop(image: PNG, region: PixelRegion): PNG {
   const out = new PNG({ width: region.width, height: region.height });
   PNG.bitblt(image, out, region.x, region.y, region.width, region.height, 0, 0);
   return out;
+}
+
+export interface ImageDiff {
+  readonly diff: PNG;
+  readonly pixelsDiff: number;
+  readonly total: number;
+  readonly percentage: number;
+}
+
+/**
+ * The pixel comparison itself, shared by `compare` and `screenshot --diff`.
+ *
+ * The two commands are opposites -- one asserts nothing changed, the other asserts something did
+ * -- and the only difference between them is which side of the threshold counts as a failure.
+ * That is a reason to share the measurement, not to write it twice.
+ */
+export function diffImages(a: PNG, b: PNG, pixelThreshold: number): ImageDiff {
+  const diff = new PNG({ width: a.width, height: a.height });
+  const pixelsDiff = pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: pixelThreshold });
+  const total = a.width * a.height;
+  return { diff, pixelsDiff, total, percentage: (pixelsDiff / total) * 100 };
 }

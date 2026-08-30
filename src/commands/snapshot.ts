@@ -1,6 +1,6 @@
 import { line, printJson, printPath } from '../output.js';
 import { findNodes, formatOutline } from '../snapshot/outline.js';
-import { centre, label, simpleType, type Snapshot, snapshotSchema } from '../snapshot/model.js';
+import { centre, label, simpleType, type Snapshot, type SnapshotNode, snapshotSchema } from '../snapshot/model.js';
 import { CliError } from '../errors.js';
 import type { BridgeClient } from '../protocol/client.js';
 import { type GlobalOptions, timestampName, withClient, writeBase64 } from './context.js';
@@ -79,6 +79,25 @@ export async function runFind(
  * labelled buttons is far worse than being told to be more specific.
  */
 export async function resolveWidget(client: BridgeClient, query: string): Promise<{ x: number; y: number }> {
+  const node = await findWidget(client, query);
+  const point = centre(node);
+  if (point === null) {
+    throw new CliError(
+      `The widget '${query}' (${node.path}) reports no bounds, so there is nowhere to click.`,
+      1,
+      'Use --at x,y with coordinates read off a screenshot.',
+    );
+  }
+  return point;
+}
+
+/**
+ * Resolves a `--widget` argument to the one node it names.
+ *
+ * Ambiguity is an error rather than a guess: silently acting on the wrong one of two similarly
+ * labelled buttons is far worse than being told to be more specific.
+ */
+export async function findWidget(client: BridgeClient, query: string): Promise<SnapshotNode> {
   const snapshot = await fetchSnapshot(client);
   const matches = findNodes(snapshot, query);
 
@@ -101,16 +120,13 @@ export async function resolveWidget(client: BridgeClient, query: string): Promis
     );
   }
 
-  const match = matches[0] as (typeof matches)[number];
-  const point = centre(match.node);
-  if (point === null) {
-    throw new CliError(
-      `The widget '${query}' (${match.node.path}) reports no bounds, so there is nowhere to click.`,
-      1,
-      'Use --at x,y with coordinates read off a screenshot.',
-    );
-  }
-  return point;
+  return (matches[0] as (typeof matches)[number]).node;
+}
+
+/** Re-reads one node by its exact path, for a caller checking what an edit left behind. */
+export async function findNodeByPath(client: BridgeClient, path: string): Promise<SnapshotNode | undefined> {
+  const snapshot = await fetchSnapshot(client);
+  return findNodes(snapshot, path).find((match) => match.node.path === path)?.node;
 }
 
 export async function runTooltip(

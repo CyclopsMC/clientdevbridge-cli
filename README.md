@@ -99,6 +99,20 @@ The unchanged scene is ghosted so the change is the only thing you see. `--regio
 comparison to a rectangle — applied to the golden as well, so it needs no re-record — and
 `--threshold` sets how much drift still counts as a match.
 
+The reverse assertion — *this did* change something — is `screenshot --diff`:
+
+```console
+$ clientdevbridge screenshot --name lamp-off
+/path/to/mod/.clientdevbridge/screenshots/lamp-off.png
+$ clientdevbridge command "setblock 0 4 2 minecraft:redstone_block"
+$ clientdevbridge screenshot --name lamp-on --diff .clientdevbridge/screenshots/lamp-off.png
+/path/to/mod/.clientdevbridge/screenshots/lamp-on.png
+changed: 4812 of 409920 pixels, 1.174% >= 0.1%.
+```
+
+It exits non-zero when the two are too similar, so "did that visibly do anything" is a check a
+script can make rather than something you have to look at.
+
 Determinism is not luck: `start` pins the GUI scale, disables clouds, particles, entity shadows,
 view bobbing and vsync, fixes the window size, and the test world is a fixed-seed superflat with
 the daylight cycle and weather off. `world-reset` puts the player at a known position every time.
@@ -150,10 +164,51 @@ clientdevbridge logs --lines 20 --level warn
 `hotswap` redefines method bodies through JDWP, so the client has to have been started with a
 debug port: `clientdevbridge start --jdwp-port 5005`. Adding or removing a field, a method or a
 superclass cannot be redefined by any JVM — `hotswap` says so and points at `restart`, rather than
-reporting success and leaving you looking at stale code.
+reporting success and leaving you looking at stale code. `--restart-if-needed` makes that call for
+you and restarts with the options the running client was launched with, so you do not have to know
+HotSpot's redefinition rules to keep going.
 
-`eval` is an escape hatch for what no command covers, with `mc`, `player`, `level`, `screen` and
-`server` bound. It is opt-in and localhost-only, like the whole bridge.
+Booting is a minute or two and it throws away the world you built, so prefer `hotswap` to
+`restart`: keep one client alive for a whole session.
+
+`eval` is an escape hatch for what no command covers, with `mc`, `player`, `level`, `screen`,
+`server` and `dev` bound. `dev` builds the game objects a script cannot construct for itself —
+`dev.pos(0, 4, 2)`, `dev.blockEntity(...)`, `dev.nbt(...)`, `dev.item("minecraft:stone")` — because
+the game is loaded by a transforming class loader and the script engine is not. It is opt-in and
+localhost-only, like the whole bridge.
+
+### It runs a whole script over one connection
+
+```bash
+clientdevbridge batch build-network.txt         # or '-' to read the commands from stdin
+```
+
+Every command opens a socket, does one thing and closes it. That is right for a command you type
+and wrong for the fifty a script issues in a row, where connecting costs more than the work.
+`batch` holds one connection open and replays the lines through the same parser the shell uses, so
+nothing about any command changes:
+
+```
+setblock 0 4 2 minecraft:redstone_lamp
+open-gui 0 4 2 --face north
+set-text "Pulse length" 77 --commit enter
+close-screen
+```
+
+It stops at the first failure and says which line, because in a script that builds something, step
+twelve is meaningless if step eleven did not happen. `--continue-on-error` runs the rest anyway,
+and `--json` prints one result object per command.
+
+### It edits a text field in one command
+
+```bash
+clientdevbridge set-text "Pulse length" 77 --commit enter
+```
+
+The manual version is click, press BACKSPACE as many times as the old value is long, type, then
+trigger whatever commits it. The snapshot already knows the field's current value, so the count is
+exact; the value is read back afterwards and reported, so a field that rejected a character says so
+rather than surfacing three commands later.
 
 ### It can aim at one side of a block
 

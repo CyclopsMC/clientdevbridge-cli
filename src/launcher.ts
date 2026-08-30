@@ -365,6 +365,14 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     display: display.description,
     jdwpPort: options.jdwpPort,
     xvfbPids: [],
+    launch: {
+      width: options.width,
+      height: options.height,
+      evalEnabled: options.evalEnabled,
+      pinOptions: options.pinOptions,
+      gradleArgs: [...options.gradleArgs],
+      timeoutMs: options.timeoutMs,
+    },
   };
   writeSession(paths, session);
 

@@ -31,12 +31,14 @@ import {
   runMouseMove,
   runOpenGui,
   runScroll,
+  runSetText,
   runType,
   runWaitFor,
 } from './commands/input.js';
 import { runFind, runInspectGui, runSnapshot, runTooltip } from './commands/snapshot.js';
 import { runCompare, runResize } from './commands/compare.js';
 import { runHotswap } from './commands/hotswap.js';
+import { runBatch } from './commands/batch.js';
 
 const program = new Command();
 
@@ -121,6 +123,9 @@ program
   .option('--space <space>', 'coordinate space for --region: gui or pixel', 'gui')
   .option('--scale <factor>', 'rescale the captured image')
   .option('--after-ticks <n>', 'wait this many client ticks before capturing')
+  .option('--diff <image.png>', 'assert this capture differs from an earlier one; exit 1 if it does not')
+  .option('--min-diff <pct>', 'percentage of pixels that must differ for --diff to pass', '0.1')
+  .option('--pixel-threshold <0-1>', 'per-pixel colour tolerance passed to pixelmatch', '0.1')
   .action(async (options) => runScreenshot(globals(), options));
 
 program
@@ -169,6 +174,12 @@ program
   .command('type <text>')
   .description('type text into the focused widget')
   .action(async (text) => runType(globals(), text));
+
+program
+  .command('set-text <widget> <value>')
+  .description('replace a text field\'s contents: focus it, clear it, type the new value')
+  .option('--commit <key>', 'key to press afterwards: enter, tab or none', 'none')
+  .action(async (widget, value, options) => runSetText(globals(), widget, value, options));
 
 program
   .command('key <key>')
@@ -341,7 +352,22 @@ program
   .description('recompile the project and redefine the changed classes in the running client')
   .option('--no-compile', 'skip the Gradle compile and swap whatever is already built')
   .option('--baseline', 'record the current classes as the baseline without swapping', false)
+  .option('--restart-if-needed', 'restart the client when a change cannot be swapped in place', false)
   .action(async (options) => runHotswap(globals(), options));
+
+program
+  .command('batch <file>')
+  .description("run many commands over one connection; '-' reads them from stdin")
+  .option('--continue-on-error', 'run every line even after one fails', false)
+  .option('--json', 'print one JSON result object per command instead of their own output', false)
+  .action(async (file, options) => {
+    process.exitCode = await runBatch(
+      globals(),
+      file,
+      { continueOnError: options['continueOnError'], json: options['json'], quiet: globals().quiet },
+      (tokens) => program.parseAsync(hideNegativeNumbers([...tokens]), { from: 'user' }).then(() => undefined),
+    );
+  });
 
 program
   .command('doctor')

@@ -25,6 +25,23 @@ export const sessionSchema = z.object({
    * renders anything. Optional so a session file written by an older CLI still parses.
    */
   xvfbPids: z.array(z.number().int().positive()).optional(),
+  /**
+   * The launch options a restart has to reproduce.
+   *
+   * Without these, restarting silently resets the window to the default size and turns eval back
+   * on, and a screenshot taken after the restart no longer lines up with one taken before it.
+   * Optional so a session file written by an older CLI still parses.
+   */
+  launch: z
+    .object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      evalEnabled: z.boolean(),
+      pinOptions: z.boolean(),
+      gradleArgs: z.array(z.string()),
+      timeoutMs: z.number().int().positive(),
+    })
+    .optional(),
 });
 
 export type Session = z.infer<typeof sessionSchema>;

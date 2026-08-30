@@ -18,9 +18,40 @@ export interface Connected {
 }
 
 /**
+ * A connection held open across several commands, or undefined when each command opens its own.
+ *
+ * Every command reaches the client through {@link withClient}, so this one variable is the whole
+ * of batch mode: while it is set, connecting is free and nobody closes the socket. That is worth
+ * a mutable module-level value, because the alternative -- threading an optional connection
+ * through every command signature -- would put batch mode in forty places instead of one.
+ */
+let sticky: Connected | undefined;
+
+/**
+ * Opens one connection and keeps it open until the returned function is called.
+ *
+ * The connection is per-project, so a caller that switches projects mid-batch would be wrong; the
+ * batch command does not offer that, and this asserts it rather than silently reusing the socket.
+ */
+export async function holdConnection(options: GlobalOptions): Promise<() => void> {
+  if (sticky !== undefined) {
+    throw new Error('A connection is already being held; batches do not nest.');
+  }
+  sticky = await connect(options);
+  return () => {
+    const held = sticky;
+    sticky = undefined;
+    held?.client.close();
+  };
+}
+
+/**
  * Connects to the running client for the project, or fails with a message that says what to run.
  */
 export async function connect(options: GlobalOptions): Promise<Connected> {
+  if (sticky !== undefined) {
+    return sticky;
+  }
   const { session, paths } = requireRunningSession(options.project);
   const client = await BridgeClient.connect({ port: session.port });
   return { client, session, paths };
@@ -32,7 +63,9 @@ export async function withClient<T>(options: GlobalOptions, action: (connected: 
   try {
     return await action(connected);
   } finally {
-    connected.client.close();
+    if (connected !== sticky) {
+      connected.client.close();
+    }
   }
 }
 
