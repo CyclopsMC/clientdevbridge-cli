@@ -458,10 +458,58 @@ async function waitForHandshake(
     await delay(500);
   }
 
+  // A client that never answers is blocked on something, and the log cannot say what: it simply
+  // stops. Ask the JVM for a thread dump before giving up, so the render thread's stack lands in
+  // the game log where whoever debugs this will look.
+  const dumped = await requestThreadDump();
   throw new SessionError(
     `The client did not answer on port ${session.port} within ${Math.round(timeoutMs / 1000)}s.\n${tailFile(gradleLog, 25)}`,
-    `Increase --timeout, or read the full log at ${gradleLog}.`,
+    dumped
+      ? `A thread dump was appended to ${gradleLog}. The stack of "Render thread" is what stalled; ` +
+        'increase --timeout only if it shows real work in progress.'
+      : `Increase --timeout, or read the full log at ${gradleLog}.`,
   );
+}
+
+/**
+ * Asks the client JVM to print every thread's stack into the game log.
+ *
+ * SIGQUIT makes a JVM dump its threads to its own stdout, which the launcher is already capturing
+ * into gradle.log -- so the evidence ends up in the file the error message points at, with no
+ * debugger and no second run.
+ *
+ * Only the client JVM is signalled, located by the system property that launched it. Signalling
+ * the process group instead would reach xvfb-run and Xvfb, for which SIGQUIT is fatal: that would
+ * take the display down and destroy the very evidence being collected.
+ *
+ * @return whether a dump was requested from at least one process
+ */
+async function requestThreadDump(): Promise<boolean> {
+  let pids: number[];
+  try {
+    pids = execFileSync('pgrep', ['-f', '-Dclientdevbridge.enabled=true'], { encoding: 'utf8' })
+      .split('\n')
+      .map((line) => Number(line.trim()))
+      .filter((pid) => Number.isInteger(pid) && pid > 0);
+  } catch {
+    // pgrep is missing, or matched nothing. Not worth failing the error path over.
+    return false;
+  }
+
+  let signalled = false;
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGQUIT');
+      signalled = true;
+    } catch {
+      // Already gone.
+    }
+  }
+  if (signalled) {
+    // The dump is written asynchronously by the JVM; give it a moment to reach the log file.
+    await delay(3_000);
+  }
+  return signalled;
 }
 
 function delay(ms: number): Promise<void> {
