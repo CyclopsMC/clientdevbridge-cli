@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-29T23:14:12.368Z",
+  "recordedAt": "2026-08-30T00:34:45.917Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -9,6 +9,7 @@
       "loader": "neoforge",
       "clientDevBridgeVersion": "1.0.0",
       "evalEnabled": true,
+      "projectDir": "/home/user/ClientDevBridge/e2e/consumer",
       "mods": [
         "cdbconsumer",
         "clientdevbridge",
@@ -32,18 +33,18 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 120,
-          "fps": 1,
+          "tick": 123,
+          "fps": 4,
           "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-neoforge/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
             "pos": [
               0.5,
               4,
-              4.5
+              0.5
             ],
             "yaw": 0,
-            "pitch": 30
+            "pitch": 29.248827
           },
           "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
           "guiScale": 2,
@@ -67,7 +68,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 123
+          "tick": 125
         }
       }
     },

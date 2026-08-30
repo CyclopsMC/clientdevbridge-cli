@@ -499,7 +499,7 @@ export async function stop(
     await delay(500);
   }
 
-  reapXvfb(status.session.xvfbPids ?? []);
+  await reapXvfb(status.session.xvfbPids ?? []);
 
   clearSession(status.paths);
   return { stopped: true, wasStale: false, orphan: null };
@@ -515,12 +515,28 @@ export async function stop(
  *
  * Only pids recorded by this session are touched, so another project's client is never disturbed.
  */
-function reapXvfb(pids: readonly number[]): void {
+async function reapXvfb(pids: readonly number[]): Promise<void> {
   for (const pid of pids) {
     try {
       process.kill(pid, 'SIGTERM');
     } catch {
       // Already gone, which is the common case: xvfb-run's trap does sometimes get to run.
+    }
+  }
+
+  // Wait for them to actually go. A dying X server still holds its display lock, and `xvfb-run -a`
+  // picks a display by looking at exactly those locks -- so returning early lets the next `start`
+  // land on a server that is halfway through shutting down, which fails with an X GLX BadAccess
+  // long after anything useful could point at the cause.
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline && pids.some(isProcessAlive)) {
+    await delay(100);
+  }
+  for (const pid of pids.filter(isProcessAlive)) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // Raced with its own exit.
     }
   }
 }

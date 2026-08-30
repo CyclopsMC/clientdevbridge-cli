@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-29T23:15:26.349Z",
+  "recordedAt": "2026-08-30T00:35:35.408Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -9,6 +9,7 @@
       "loader": "fabric",
       "clientDevBridgeVersion": "1.0.0",
       "evalEnabled": true,
+      "projectDir": "/home/user/ClientDevBridge/e2e/consumer",
       "mods": [
         "cdbconsumer",
         "clientdevbridge",
@@ -84,18 +85,18 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 187,
+          "tick": 172,
           "fps": 4,
           "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-fabric/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
             "pos": [
               0.5,
-              4.535840625044555,
-              4.5
+              4,
+              0.5
             ],
             "yaw": 0,
-            "pitch": 30
+            "pitch": 29.248827
           },
           "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
           "guiScale": 2,
@@ -119,7 +120,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 189
+          "tick": 174
         }
       }
     },
@@ -142,7 +143,7 @@
             "[WARN] [net.minecraft.client.renderer.ShaderInstance] Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program."
           ],
           "level": "warn",
-          "buffered": 1454
+          "buffered": 1308
         }
       }
     },

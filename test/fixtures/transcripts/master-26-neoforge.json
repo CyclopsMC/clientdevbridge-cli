@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-29T23:48:17.424Z",
+  "recordedAt": "2026-08-30T00:38:50.383Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -9,6 +9,7 @@
       "loader": "neoforge",
       "clientDevBridgeVersion": "1.0.0",
       "evalEnabled": true,
+      "projectDir": "/home/user/cdb-26n/e2e/consumer",
       "mods": [
         "cdbconsumer",
         "clientdevbridge",
@@ -32,18 +33,18 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 161,
-          "fps": 4,
+          "tick": 160,
+          "fps": 5,
           "gameDir": "/home/user/cdb-26n/e2e/consumer/loader-neoforge/run",
           "dimension": "minecraft:overworld",
           "player": {
             "pos": [
               0.5,
               4,
-              4.5
+              0.5
             ],
             "yaw": 0,
-            "pitch": 30
+            "pitch": 29.248827
           },
           "glRenderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
           "guiScale": 2,
@@ -67,7 +68,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 163
+          "tick": 162
         }
       }
     },
@@ -490,7 +491,7 @@
                 "item": "minecraft:diamond",
                 "count": 5,
                 "name": "Diamond",
-                "components": "{minecraft:swing_animation=>SwingAnimation[type=WHACK, duration=6], minecraft:enchantments=>ItemEnchantments{enchantments={}}, minecraft:max_stack_size=>64, minecraft:use_effects=>UseEffects[canSprint=false, interactVibrations=true, speedMultiplier=0.2], minecraft:item_model=>minecraft:diamond, minecraft:item_name=>translation{key='item.minecraft.diamond', args=[]}, minecraft:provides_trim_material=>Reference{ResourceKey[minecraft:trim_material / minecraft:diamond]=TrimMaterial[assets=MaterialAssetGroup[base=AssetInfo[suffix=diamond], overrides={ResourceKey[minecraft:equipment_asset / minecraft:diamond]=AssetInfo[suffix=diamond_darker]}], description=translation{key='trim_material.minecraft.diamond', args=[]}[style={color=#6EECD2}]]}, minecraft:repair_cost=>0, minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:break_sound=>Reference{ResourceKey[minecraft:sound_event / minecraft:entity.item.break]=SoundEvent[location=minecraft:entity.item.break, fixedRange=Optional.empty]}, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[]], minecraft:tooltip_display=>TooltipDisplay[hideTooltip=false, hiddenComponents={}], minecraft:rarity=>COMMON}",
+                "components": "{minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[]], minecraft:enchantments=>ItemEnchantments{enchantments={}}, minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:item_model=>minecraft:diamond, minecraft:tooltip_display=>TooltipDisplay[hideTooltip=false, hiddenComponents={}], minecraft:provides_trim_material=>Reference{ResourceKey[minecraft:trim_material / minecraft:diamond]=TrimMaterial[assets=MaterialAssetGroup[base=AssetInfo[suffix=diamond], overrides={ResourceKey[minecraft:equipment_asset / minecraft:diamond]=AssetInfo[suffix=diamond_darker]}], description=translation{key='trim_material.minecraft.diamond', args=[]}[style={color=#6EECD2}]]}, minecraft:item_name=>translation{key='item.minecraft.diamond', args=[]}, minecraft:use_effects=>UseEffects[canSprint=false, interactVibrations=true, speedMultiplier=0.2], minecraft:rarity=>COMMON, minecraft:max_stack_size=>64, minecraft:swing_animation=>SwingAnimation[type=WHACK, duration=6], minecraft:repair_cost=>0, minecraft:break_sound=>Reference{ResourceKey[minecraft:sound_event / minecraft:entity.item.break]=SoundEvent[location=minecraft:entity.item.break, fixedRange=Optional.empty]}}",
                 "x": 133,
                 "y": 179,
                 "hovered": false
