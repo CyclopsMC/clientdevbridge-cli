@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-30T00:34:45.917Z",
+  "recordedAt": "2026-08-30T01:28:14.261Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -33,8 +33,8 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 123,
-          "fps": 4,
+          "tick": 121,
+          "fps": 5,
           "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-neoforge/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
@@ -68,7 +68,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 125
+          "tick": 123
         }
       }
     },
@@ -112,8 +112,8 @@
           "pixelWidth": 854,
           "pixelHeight": 480,
           "mouse": [
-            0,
-            0
+            213.5,
+            120
           ],
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
           "title": "Crafting",

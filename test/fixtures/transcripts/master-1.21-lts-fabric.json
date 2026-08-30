@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-30T00:35:35.408Z",
+  "recordedAt": "2026-08-30T01:29:03.851Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -86,7 +86,7 @@
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
           "tick": 172,
-          "fps": 4,
+          "fps": 2,
           "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-fabric/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
@@ -164,8 +164,8 @@
           "pixelWidth": 854,
           "pixelHeight": 480,
           "mouse": [
-            0,
-            0
+            213.5,
+            120
           ],
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
           "title": "Crafting",
