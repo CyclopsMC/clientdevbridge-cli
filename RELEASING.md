@@ -26,10 +26,36 @@ ClientDevBridge branch without booting Minecraft. A release that breaks one bran
 
 ## Cutting a release
 
+`CHANGELOG.md` is maintained with [manual-git-changelog](https://www.npmjs.com/package/manual-git-changelog),
+hooked into npm's `version` lifecycle:
+
+```json
+"version": "manual-git-changelog onversion"
+```
+
+So `npm version` writes the new section itself, from the commits since the last `v*` tag, and then
+**pauses** with:
+
+```
+Manually edit CHANGELOG.md, press any key to finalize...
+```
+
+That pause is the point of the tool: open `CHANGELOG.md` in another window, replace the generated
+`### TODO: categorize commits...` heading with the ones that apply (`Added`, `Changed`,
+`Deprecated`, `Removed`, `Fixed`, `Security`), drop the commits nobody outside this repository
+cares about, then press a key. The tool stages the file so it lands in the version commit.
+
 ```bash
-npm version <patch|minor|major>     # bumps package.json and creates the v<x.y.z> commit and tag
-# write the release into CHANGELOG.md, amend it into the version commit
+npm version <patch|minor|major>     # bumps package.json, writes CHANGELOG.md, commits, tags v<x.y.z>
 git push && git push --tags
+```
+
+`onversion` needs a previous `v*` tag to compare against, so the **first** release cannot use it —
+`CHANGELOG.md` was seeded with `manual-git-changelog init` instead, and the first release is just
+its tag:
+
+```bash
+git tag v0.1.0 && git push --tags
 ```
 
 Watch the `Publish to npm` job. On success:

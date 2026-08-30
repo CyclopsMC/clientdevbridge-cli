@@ -2,7 +2,14 @@
   "name": "@cyclopsmc/clientdevbridge-cli",
   "version": "0.1.0",
   "description": "CLI that launches and drives a Minecraft dev client through the ClientDevBridge mod, for coding agents.",
-  "keywords": ["minecraft", "modding", "cyclopsmc", "agent", "claude-code", "testing"],
+  "keywords": [
+    "minecraft",
+    "modding",
+    "cyclopsmc",
+    "agent",
+    "claude-code",
+    "testing"
+  ],
   "license": "MIT",
   "author": "rubensworks (aka kroeser)",
   "homepage": "https://github.com/CyclopsMC/clientdevbridge-cli",
@@ -19,13 +26,22 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepublishOnly": "npm run build",
+    "version": "manual-git-changelog onversion",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -46,6 +62,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.0",
+    "manual-git-changelog": "^1.0.2",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }
