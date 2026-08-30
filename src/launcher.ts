@@ -471,6 +471,19 @@ async function waitForHandshake(
   );
 }
 
+/** Whether a pid belongs to a JVM, which is the only kind of process SIGQUIT is safe to send to. */
+function isJavaProcess(pid: number): boolean {
+  try {
+    const command = execFileSync('ps', ['-o', 'comm=', '-p', String(pid)], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return path.basename(command) === 'java';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Asks the client JVM to print every thread's stack into the game log.
  *
@@ -484,20 +497,39 @@ async function waitForHandshake(
  *
  * @return whether a dump was requested from at least one process
  */
-async function requestThreadDump(): Promise<boolean> {
+export async function requestThreadDump(): Promise<boolean> {
   let pids: number[];
   try {
-    pids = execFileSync('pgrep', ['-f', '-Dclientdevbridge.enabled=true'], { encoding: 'utf8' })
+    // The `--` matters: the pattern starts with a dash, and without it pgrep reads it as options
+    // and exits with "invalid option -- 'D'" -- which the catch below would quietly turn into
+    // "no dump available", exactly when a dump is what is needed.
+    pids = execFileSync('pgrep', ['-f', '--', '-Dclientdevbridge.enabled=true'], { encoding: 'utf8' })
       .split('\n')
       .map((line) => Number(line.trim()))
       .filter((pid) => Number.isInteger(pid) && pid > 0);
-  } catch {
-    // pgrep is missing, or matched nothing. Not worth failing the error path over.
+  } catch (error) {
+    // pgrep exits 1 when it simply matched nothing, and >1 when the call itself was wrong. Those
+    // are very different, and collapsing them is how a bug hid here once already: the pattern
+    // starts with a dash, pgrep rejected it as an option, and the failure looked exactly like
+    // "there is no client to dump".
+    const status = (error as { status?: number }).status;
+    if (status !== 1) {
+      process.stderr.write(
+        `Could not ask the client for a thread dump: pgrep exited ${status ?? 'abnormally'}.\n`,
+      );
+    }
     return false;
   }
 
   let signalled = false;
   for (const pid of pids) {
+    // Only ever signal a JVM. `pgrep -f` matches on the whole command line, so it also finds
+    // anything that merely mentions the property -- a shell grepping for it, an editor with the
+    // init script open. SIGQUIT is a thread dump to a JVM and a *kill* to everything else, so
+    // signalling an unchecked match would terminate an innocent process while trying to debug.
+    if (!isJavaProcess(pid)) {
+      continue;
+    }
     try {
       process.kill(pid, 'SIGQUIT');
       signalled = true;
