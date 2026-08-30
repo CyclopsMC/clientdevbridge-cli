@@ -88,4 +88,4 @@ export function unsupportedMessage(minecraftVersion: string): string {
  * publishing convention emits artifact-only POMs, so nothing declares it transitively and the
  * init script has to add it alongside the bridge itself.
  */
-export const GROOVY_DEPENDENCY = 'org.apache.groovy:groovy-jsr223:4.0.22';
+export const GROOVY_DEPENDENCY = 'org.apache.groovy:groovy-jsr223:5.1.1';

@@ -44,6 +44,10 @@ All notable changes to this project will be documented in this file.
   its block entity from another.
 
 ### Fixed
+* `eval` and `wait --expr` work on Minecraft 26. The init script pinned Groovy 4.0.22, which cannot
+  read Java 25 class files, so both failed there with `Unsupported class file major version 69` —
+  on every 26 client, for the whole life of those branches. Groovy 5.1.1 handles them, and is fine
+  on 1.21 too.
 * An in-world `click` no longer reports `screen: none` at the moment it opened one. The click queues
   a key binding that the game processes on the next tick, and the reply now waits for it.
 * `inventory` and `snapshot` describe what a container item holds, instead of printing the component
