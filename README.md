@@ -200,6 +200,24 @@ It stops at the first failure and says which line, because in a script that buil
 twelve is meaningless if step eleven did not happen. `--continue-on-error` runs the rest anyway,
 and `--json` prints one result object per command.
 
+### It can mine
+
+```console
+$ clientdevbridge break 0 4 2
+broke Block{minecraft:cobblestone} in 9 ticks
+  dropped minecraft:cobblestone x1 at 0.26, 4.00, 1.82
+$ clientdevbridge walk-to 0.26 1.82
+Walked to 0.18, 4.00, 1.24.
+```
+
+Mining is a held action, and how long it takes depends on the block and the tool — so `break` holds
+attack and advances the progress once per tick until the block gives way, which is what makes the
+tick count mean something: nine with a diamond pickaxe, about two hundred with bare hands, and bare
+hands drop nothing. The drop is *thrown*, so its position is reported: that is where you walk to.
+
+`hold-key ATTACK --ticks 20` is the underlying mechanism. It also takes `USE` — eating, drinking,
+drawing a bow, raising a shield — and `MOUSE_LEFT`/`MOUSE_RIGHT`/`MOUSE_MIDDLE`.
+
 ### It can use the item in your hand
 
 ```bash

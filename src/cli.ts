@@ -9,6 +9,7 @@ import { runLogs, runScreenshot } from './commands/inspect.js';
 import { runDoctor } from './commands/doctor.js';
 import {
   runBlock,
+  runBreak,
   runCommand,
   runGive,
   runInventory,
@@ -19,6 +20,7 @@ import {
   runWorldLeave,
   runWorldList,
   runWorldLoad,
+  runWalkTo,
   runWorldReset,
 } from './commands/world.js';
 import {
@@ -309,6 +311,22 @@ program
   .description('describe the block at a position')
   .option('--nbt', 'include the block entity NBT the client knows about', false)
   .action(async (x, y, z, options) => runBlock(globals(), x, y, z, options));
+
+program
+  .command('break <x> <y> <z>')
+  .description('mine a block by holding attack until it gives way, and report what dropped')
+  .option('--no-approach', 'do not teleport the player within reach first')
+  .option('--face <face>', 'which side to aim at: down, up, north, south, east, west')
+  .option('--at <x,y,z>', 'aim at this world point on the block, instead of a face centre')
+  .option('--timeout-ticks <n>', 'give up after this many ticks (default 300)')
+  .action(async (x, y, z, options) => runBreak(globals(), x, y, z, options));
+
+program
+  .command('walk-to <x> <z>')
+  .description('walk to a horizontal position instead of teleporting to it')
+  .option('--within <blocks>', 'how close counts as arrived', '0.6')
+  .option('--timeout-ticks <n>', 'give up after this many ticks (default 300)')
+  .action(async (x, z, options) => runWalkTo(globals(), x, z, options));
 
 program
   .command('setblock <x> <y> <z> <block>')

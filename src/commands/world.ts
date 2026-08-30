@@ -164,6 +164,97 @@ export async function runGive(global: GlobalOptions, item: string, count: string
   await runCommand(global, `give @s ${item} ${count}`);
 }
 
+/**
+ * Breaks a block by mining it, which no single click can do.
+ *
+ * Mining is a held action whose length depends on the block, the tool and whether the tool is even
+ * the right one — so the mod holds attack and ticks the progress until the block gives way, and the
+ * tick count comes back as the observable difference between the right tool and the wrong one.
+ */
+export async function runBreak(
+  global: GlobalOptions,
+  x: string,
+  y: string,
+  z: string,
+  options: { approach: boolean; timeoutTicks?: string | undefined } & AimOptions,
+): Promise<void> {
+  await withClient(global, async ({ client }) => {
+    const params: Record<string, unknown> = {
+      blockPos: [Number(x), Number(y), Number(z)],
+      approach: options.approach,
+      ...aimParams(options),
+    };
+    if (options.timeoutTicks !== undefined) {
+      params['timeoutTicks'] = Number(options.timeoutTicks);
+    }
+    const result = await client.call<Record<string, unknown>>('world.break', params, 120_000);
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    const drops = (result['drops'] as { item: string; count: number; pos: number[] }[] | undefined) ?? [];
+    if (result['broken'] === true) {
+      if (!global.quiet) {
+        line(`broke ${result['blockBefore']} in ${result['ticks']} ticks`);
+        for (const drop of drops) {
+          // With the position, because a drop is thrown rather than placed and lands a block or
+          // two from where the block was -- which is where you have to walk to pick it up.
+          const at = drop.pos.map((value) => value.toFixed(2)).join(', ');
+          line(`  dropped ${drop.item} x${drop.count} at ${at}`);
+        }
+        if (drops.length === 0) {
+          line('  nothing dropped');
+        }
+      }
+      return;
+    }
+    line(
+      `${result['blockBefore']} at ${x},${y},${z} did not break after ${result['ticks']} ticks. ` +
+        'Either the block is unbreakable, the held item cannot harvest it, or the player is out of reach.',
+    );
+    process.exitCode = 1;
+  });
+}
+
+/**
+ * Walks to a position instead of teleporting to it, for when the movement is the point.
+ *
+ * The manual version is resetting the pitch — walking forward while looking down walks into the
+ * ground — and then guessing a tick count, which is dead reckoning: nothing says how far twenty
+ * ticks goes.
+ */
+export async function runWalkTo(
+  global: GlobalOptions,
+  x: string,
+  z: string,
+  options: { within?: string | undefined; timeoutTicks?: string | undefined },
+): Promise<void> {
+  await withClient(global, async ({ client }) => {
+    const params: Record<string, unknown> = { x: Number(x), z: Number(z) };
+    if (options.within !== undefined) {
+      params['within'] = Number(options.within);
+    }
+    if (options.timeoutTicks !== undefined) {
+      params['timeoutTicks'] = Number(options.timeoutTicks);
+    }
+    const result = await client.call<Record<string, unknown>>('player.walkTo', params, 120_000);
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    const pos = result['pos'] as number[];
+    const at = pos.map((value) => value.toFixed(2)).join(', ');
+    if (result['arrived'] === true) {
+      if (!global.quiet) {
+        line(`Walked to ${at}.`);
+      }
+      return;
+    }
+    line(`Stopped at ${at} without reaching ${x}, ${z}. Something is in the way, or it is too far.`);
+    process.exitCode = 1;
+  });
+}
+
 export async function runTeleport(
   global: GlobalOptions,
   x: string,

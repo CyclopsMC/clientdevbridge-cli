@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+* `break <x> <y> <z>`, which mines a block the way a player does — holding attack until it gives
+  way — and reports how many ticks it took and what dropped, with each drop's position, since a drop
+  is thrown rather than placed and lands a block or two away.
+* `walk-to <x> <z>`, for when the movement is the point rather than the destination. Doing it by
+  hand meant resetting the pitch (walking forward while looking down walks into the ground) and then
+  guessing a tick count.
+* `hold-key` takes `ATTACK`, `USE`, `PICK` and `MOUSE_LEFT`/`MOUSE_RIGHT`/`MOUSE_MIDDLE`. Attack is
+  bound to a mouse button, so holding it was impossible to express — and holding it is mining, as
+  holding use is eating, drinking, drawing a bow and raising a shield.
 * `use-item [--hand auto|main|off] [--wait-screen]`, and `open-gui` with no coordinates as the same
   thing. Every other use command took a block position, so a mod whose entry point is an item had no
   command at all. A right-click aimed at a block interacts with the block and never reaches the
