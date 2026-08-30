@@ -59,6 +59,38 @@ describe('renderInitScript', () => {
     expect(script).not.toContain('firstExisting');
   });
 
+  it('resolves the bridge from an anonymous Maven, with no credentials to set up', () => {
+    const script = renderInitScript(baseOptions);
+    expect(script).toContain('https://cyclopsmc.github.io/ClientDevBridge-Releases');
+    // The GitHub Packages Maven needs a token even for public packages, which is exactly the
+    // setup a consumer repository is supposed not to need.
+    expect(script).not.toContain('maven.pkg.github.com');
+    expect(script).not.toContain('credentials {');
+  });
+
+  it('confines both repositories to ClientDevBridge’s own group', () => {
+    // An unfiltered repository added to somebody else's build is a hazard: mavenLocal will shadow
+    // any dependency a stale local build happens to have.
+    const script = renderInitScript(baseOptions);
+    expect(script.match(/includeGroup 'org\.cyclops\.clientdevbridge'/g)).toHaveLength(2);
+  });
+
+  it('honours CLIENTDEVBRIDGE_MAVEN_URL, for a fork or a mirror', () => {
+    const previous = process.env['CLIENTDEVBRIDGE_MAVEN_URL'];
+    process.env['CLIENTDEVBRIDGE_MAVEN_URL'] = 'http://127.0.0.1:8080/maven';
+    try {
+      const script = renderInitScript(baseOptions);
+      expect(script).toContain("url = 'http://127.0.0.1:8080/maven'");
+      expect(script).not.toContain('cyclopsmc.github.io');
+    } finally {
+      if (previous === undefined) {
+        delete process.env['CLIENTDEVBRIDGE_MAVEN_URL'];
+      } else {
+        process.env['CLIENTDEVBRIDGE_MAVEN_URL'] = previous;
+      }
+    }
+  });
+
   it('only injects into the module being launched', () => {
     // Injecting into a multiloader repo's other loader modules is pointless, and on the Minecraft
     // 26 toolchain it makes Loom set Minecraft up before its mappings are populated.

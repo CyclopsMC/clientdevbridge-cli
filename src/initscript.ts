@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { coordinate, GROOVY_DEPENDENCY } from './artifacts.js';
+import { coordinate, GROOVY_DEPENDENCY, GROUP, releasesMavenUrl } from './artifacts.js';
 import type { Loader } from './detect.js';
 
 export interface InitScriptOptions {
@@ -90,17 +90,23 @@ allprojects { project ->
         return
     }
 
+    // Both repositories are restricted to ClientDevBridge's own group. Adding an unfiltered
+    // repository to somebody else's build is a real hazard -- mavenLocal in particular will shadow
+    // any dependency a stale local build happens to have -- and this script has no business
+    // affecting how the project resolves anything but the bridge.
     project.repositories {
         // mavenLocal first, so that a developer working on ClientDevBridge itself picks up
         // their own './gradlew publishToMavenLocal' build ahead of any released one.
-        mavenLocal()
+        mavenLocal {
+            content { includeGroup ${groovyString(GROUP)} }
+        }
         maven {
-            name = 'ClientDevBridge (CyclopsMC GitHub Packages)'
-            url = 'https://maven.pkg.github.com/CyclopsMC/packages'
-            credentials {
-                username = project.findProperty('gpr.user') ?: System.getenv('MAVEN_USERNAME') ?: System.getenv('GITHUB_USER')
-                password = project.findProperty('gpr.key') ?: System.getenv('MAVEN_KEY') ?: System.getenv('GITHUB_TOKEN')
-            }
+            name = 'ClientDevBridge releases'
+            // A static Maven repository served by GitHub Pages. No credentials block, and that is
+            // the point: the CyclopsMC GitHub Packages Maven needs a token even for public
+            // packages, so a consumer would have to set one up before they could launch a client.
+            url = ${groovyString(releasesMavenUrl())}
+            content { includeGroup ${groovyString(GROUP)} }
         }
     }
 

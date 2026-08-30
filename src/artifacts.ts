@@ -20,6 +20,24 @@ export interface ArtifactLine {
 
 export const GROUP = 'org.cyclops.clientdevbridge';
 
+/**
+ * Where the mod builds are published.
+ *
+ * A static Maven repository served by GitHub Pages out of CyclopsMC/ClientDevBridge-Releases. It
+ * is deliberately not the CyclopsMC GitHub Packages Maven that the rest of the Cyclops artifacts
+ * live in: GitHub Packages requires a token even for public packages, so every mod developer would
+ * have to set credentials up before they could launch a client. This one is anonymous, which is
+ * what lets a consumer repository need no setup at all.
+ *
+ * `CLIENTDEVBRIDGE_MAVEN_URL` overrides it, for a fork, a mirror, or a local server.
+ */
+export const RELEASES_MAVEN_URL = 'https://cyclopsmc.github.io/ClientDevBridge-Releases';
+
+export function releasesMavenUrl(): string {
+  const override = process.env['CLIENTDEVBRIDGE_MAVEN_URL'];
+  return override === undefined || override.length === 0 ? RELEASES_MAVEN_URL : override;
+}
+
 // Order matters: the first matching line wins, so the LTS lines are listed before the trunk one.
 // The LTS branch tracks a specific point release (26.1.x); the trunk branch is everything newer.
 export const ARTIFACT_LINES: readonly ArtifactLine[] = [

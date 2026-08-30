@@ -39,7 +39,8 @@ export const REQUIRED_HOSTS: readonly { host: string; why: string }[] = [
   { host: 'maven.fabricmc.net', why: 'Fabric loader, Loom and intermediary mappings' },
   { host: 'maven.parchmentmc.org', why: 'Parchment parameter mappings' },
   { host: 'repo.spongepowered.org', why: 'Mixin' },
-  { host: 'maven.pkg.github.com', why: 'CyclopsMC packages, including ClientDevBridge itself' },
+  { host: 'cyclopsmc.github.io', why: 'the ClientDevBridge builds, from the releases Maven' },
+  { host: 'maven.pkg.github.com', why: 'CyclopsMC packages, if the mod under test needs them' },
   { host: 'registry.npmjs.org', why: 'the CLI itself, via npx' },
 ];
 
