@@ -200,6 +200,18 @@ It stops at the first failure and says which line, because in a script that buil
 twelve is meaningless if step eleven did not happen. `--continue-on-error` runs the rest anyway,
 and `--json` prints one result object per command.
 
+### It can use the item in your hand
+
+```bash
+clientdevbridge use-item --wait-screen
+clientdevbridge open-gui                # no coordinates means the held item
+```
+
+The plainest interaction in the game, and how most item GUIs open. A right-click aimed at a block
+interacts with the block instead — what a player gets, and the likeliest reason an item looks like
+it did nothing — so `use-item` reports what it was aimed at and says so. `--hand main` skips that
+decision; `--hand off` reaches an off-hand item, which a player cannot aim at.
+
 ### It can shift-click
 
 ```bash

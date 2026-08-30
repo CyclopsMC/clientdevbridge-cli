@@ -30,6 +30,7 @@ import {
   runKey,
   runMouseMove,
   runOpenGui,
+  runUseItem,
   runScroll,
   runSetText,
   runSlotClick,
@@ -237,8 +238,15 @@ program
   .action(async (options) => runTooltip(globals(), options));
 
 program
-  .command('open-gui <x> <y> <z>')
-  .description("right-click a block to open its GUI")
+  .command('use-item')
+  .description("right-click with the held item, aimed at nothing -- how most item GUIs open")
+  .option('--hand <hand>', 'auto (as a player), main or off', 'auto')
+  .option('--wait-screen', 'fail if no screen opened', false)
+  .action(async (options) => runUseItem(globals(), options));
+
+program
+  .command('open-gui [x] [y] [z]')
+  .description("right-click a block to open its GUI, or the held item with no coordinates")
   .option('--no-approach', 'do not teleport the player within reach first')
   .option('--face <face>', 'which side to aim at: down, up, north, south, east, west')
   .option('--at <x,y,z>', 'aim at this world point on the block, instead of a face centre')

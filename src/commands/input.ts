@@ -296,13 +296,63 @@ export function aimParams(options: AimOptions): Record<string, unknown> {
   return params;
 }
 
+/**
+ * Right-clicks with the held item, aimed at nothing -- the plainest interaction in the game.
+ *
+ * Every other use command takes a block position, so a mod whose entry point is an item rather
+ * than a block had no command at all. It was reachable by accident, through an in-world
+ * `click --button 1`, which nothing said and `--help` would never have shown.
+ */
+export async function runUseItem(
+  global: GlobalOptions,
+  options: { hand: string; waitScreen: boolean },
+): Promise<void> {
+  const hand = options.hand.toLowerCase();
+  if (!['auto', 'main', 'off'].includes(hand)) {
+    throw new CliError(`--hand must be auto, main or off, but was '${options.hand}'.`, 2);
+  }
+  await withClient(global, async ({ client }) => {
+    const result = await client.call<Record<string, unknown>>('player.useItem', { hand }, 60_000);
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    const opened = result['screenOpened'] === true;
+    const aimedAt = String(result['aimedAt'] ?? 'none');
+    if (!global.quiet) {
+      line(`used ${result['held']} (aimed at ${aimedAt}); screen: ${result['screenClass'] ?? 'none'}`);
+    }
+    // A right-click aimed at a block interacts with the block and never reaches the item -- which
+    // is what a player gets, and the likeliest reason an item appears to do nothing.
+    if (hand === 'auto' && aimedAt !== 'miss' && aimedAt !== 'none') {
+      warn(
+        `The player was looking at a ${aimedAt}, which takes a right-click before the held item does. ` +
+          'Aim at nothing first (`look --pitch -90`), or pass --hand main to use the item regardless.',
+      );
+    }
+    if (options.waitScreen && !opened) {
+      // The item did something, or nothing, but it did not open a screen -- and the caller said
+      // that is what they were waiting for, so it is a failure rather than a note.
+      line('No screen opened. If the item opens one via the server, it may need longer: '
+        + 'try `wait --screen <class> --timeout 5000`.');
+      process.exitCode = 1;
+    }
+  });
+}
+
 export async function runOpenGui(
   global: GlobalOptions,
-  x: string,
-  y: string,
-  z: string,
+  x: string | undefined,
+  y: string | undefined,
+  z: string | undefined,
   options: { approach: boolean } & AimOptions,
 ): Promise<void> {
+  if (x === undefined) {
+    // No coordinates means the held item, so the composite that waits for a screen works for an
+    // item-based mod too rather than only for blocks.
+    await runUseItem(global, { hand: 'auto', waitScreen: true });
+    return;
+  }
   await withClient(global, async ({ client }) => {
     const result = await client.call<Record<string, unknown>>(
       'screen.open',

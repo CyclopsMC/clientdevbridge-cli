@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+* `use-item [--hand auto|main|off] [--wait-screen]`, and `open-gui` with no coordinates as the same
+  thing. Every other use command took a block position, so a mod whose entry point is an item had no
+  command at all. A right-click aimed at a block interacts with the block and never reaches the
+  item, so the reply says what it was aimed at and warns when something took the click first.
 * `slot-click <slot> [--type quick_move|pickup|swap|clone|throw|quick_craft|pickup_all]`, and
   `--shift` on `click`. A screen works out that a click was a shift-click from the real keyboard
   state, which synthetic input cannot reach, so the operation is named rather than inferred. The
@@ -31,6 +35,10 @@ All notable changes to this project will be documented in this file.
   its block entity from another.
 
 ### Fixed
+* An in-world `click` no longer reports `screen: none` at the moment it opened one. The click queues
+  a key binding that the game processes on the next tick, and the reply now waits for it.
+* `inventory` and `snapshot` describe what a container item holds, instead of printing the component
+  through a `toString` that is a class name and an identity hash.
 * `teleport` no longer prints a position the player is about to leave. The mod now waits for them to
   land rather than merely arrive, and warns when nothing is holding them up.
 
