@@ -425,6 +425,11 @@ async function waitForHandshake(
 ): Promise<{ hello: unknown; gameDir: string | null }> {
   const deadline = Date.now() + timeoutMs;
   let lastReport = 0;
+  // What the loop last observed, so that giving up can say which of the several quite different
+  // reasons it was still waiting for: nothing listening, a socket that never handshakes, or a
+  // client that answers and simply is not ready.
+  let attempts = 0;
+  let lastObservation = 'the port was never reachable';
 
   while (Date.now() < deadline) {
     if (!isProcessAlive(session.pid)) {
@@ -434,6 +439,7 @@ async function waitForHandshake(
       );
     }
     if (!(await isPortFree(session.port))) {
+      attempts += 1;
       try {
         const client = await BridgeClient.connect({ port: session.port, timeoutMs: 10_000 });
         // The socket opens during mod initialisation, long before the game is usable: the
@@ -447,8 +453,11 @@ async function waitForHandshake(
         if (ready) {
           return { hello, gameDir: typeof reported === 'string' ? reported : null };
         }
-      } catch {
-        // The port is open but the handshake or status is not ready; keep waiting.
+        lastObservation =
+          `the client answered but was not ready yet (screen ${String(status['screenClass'] ?? 'none')}, ` +
+          `inWorld ${String(status['inWorld'])}, tick ${String(status['tick'])}, fps ${String(status['fps'])})`;
+      } catch (error) {
+        lastObservation = `connecting to the open port failed: ${(error as Error).message}`;
       }
     }
     if (Date.now() - lastReport > 15_000) {
@@ -463,7 +472,8 @@ async function waitForHandshake(
   // the game log where whoever debugs this will look.
   const dumped = await requestThreadDump();
   throw new SessionError(
-    `The client did not answer on port ${session.port} within ${Math.round(timeoutMs / 1000)}s.\n${tailFile(gradleLog, 25)}`,
+    `The client did not answer on port ${session.port} within ${Math.round(timeoutMs / 1000)}s.\n` +
+      `Reached the port ${attempts} time(s); last time, ${lastObservation}.\n${tailFile(gradleLog, 25)}`,
     dumped
       ? `A thread dump was appended to ${gradleLog}. The stack of "Render thread" is what stalled; ` +
         'increase --timeout only if it shows real work in progress.'
