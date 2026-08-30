@@ -271,7 +271,11 @@ export async function runDoctor(
     }
   } else {
     line('');
-    line('Everything checks out. Run: clientdevbridge start');
+    // Naming the loader that was actually checked: on a multiloader project a bare `start` picks
+    // NeoForge, so telling someone who ran `doctor --loader fabric` to run `start` sends them to a
+    // different client than the one just vouched for.
+    const loader = options.loader === undefined ? '' : ` --loader ${options.loader}`;
+    line(`Everything checks out. Run: clientdevbridge start${loader}`);
   }
   return failures.length === 0 ? 0 : 2;
 }

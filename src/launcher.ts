@@ -129,6 +129,38 @@ export async function describeBridgeOnPort(
   }
 }
 
+/** What to tell someone whose bridge port is already taken. */
+export function hintForOccupiedPort(
+  port: number,
+  owner: string | null,
+  bridge: { projectDir: string | null; mcVersion: string; loader: string } | null,
+  thisProject: string,
+): string {
+  if (bridge === null) {
+    return owner === null
+      ? `Pass --port <other> to use a different one, or stop whatever is listening on ${port}.`
+      : `Something that is not a ClientDevBridge client holds it: pid ${owner}. ` +
+        `Stop it with 'kill ${owner.split(' ')[0]}', or start this one elsewhere with --port <other>.`;
+  }
+  const where = bridge.projectDir;
+  if (where !== null && path.resolve(where) !== path.resolve(thisProject)) {
+    return (
+      `A ClientDevBridge client for another project holds it (Minecraft ${bridge.mcVersion}, ${bridge.loader}):\n` +
+      `      ${where}\n` +
+      `    Stop that one with 'clientdevbridge --project ${where} stop', or run this one alongside ` +
+      'it with --port <other>.'
+    );
+  }
+  return (
+    `A ClientDevBridge client for this project already holds it (Minecraft ${bridge.mcVersion}, ` +
+    `${bridge.loader}), but its session file is gone, so 'stop' cannot find it. ` +
+    (owner === null
+      ? 'Stop it by hand, or start elsewhere with --port <other>.'
+      : `Stop it with 'pkill -g $(ps -o pgid= -p ${owner.split(' ')[0]} | tr -d " ")', or start ` +
+        'elsewhere with --port <other>.')
+  );
+}
+
 export function describePortOwner(port: number): string | null {
   if (process.platform === 'win32') {
     return null;
@@ -191,17 +223,17 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   const bridgeVersion = options.bridgeVersion ?? resolveBridgeVersion(project.minecraftVersion, project.loader);
 
   if (!(await isPortFree(options.port))) {
-    // Reaching here with no session recorded means an orphan: a client whose session.json was
-    // deleted or overwritten, which `stop` can no longer find. Naming the process is the
-    // difference between a one-command fix and a puzzle.
+    // Whose client it is decides the advice. A ClientDevBridge client answers with the project it
+    // was launched for, and the common case by far is another checkout of the developer's own --
+    // telling them to kill it is confident, wrong, and worse than saying nothing. Even for a
+    // client of this project, `kill <pid>` names the java process, whose process group is not the
+    // xvfb-run one the session tracks, so it leaves the virtual display behind; `stop` does not.
     const owner = describePortOwner(options.port);
+    const bridge = await describeBridgeOnPort(options.port);
     throw new CliError(
       `Port ${options.port} on 127.0.0.1 is already in use, so the client could not claim it.`,
       2,
-      owner === null
-        ? 'Pass --port <other> to use a different one, or stop whatever is listening there.'
-        : `An orphaned client still holds it: pid ${owner}. Stop it with 'kill ${owner.split(' ')[0]}', ` +
-          'or start this one elsewhere with --port <other>.',
+      hintForOccupiedPort(options.port, owner, bridge, project.projectDir),
     );
   }
 

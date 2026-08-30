@@ -298,7 +298,7 @@ program
 program
   .command('compare <name>')
   .description('compare a screenshot against a committed golden image')
-  .option('--region <x,y,w,h>', 'compare only this rectangle')
+  .option('--region <x,y,w,h>', 'compare only this rectangle; applied to the golden too, so it needs no re-record')
   .option('--space <space>', 'coordinate space for --region: gui or pixel', 'gui')
   .option('--threshold <pct>', 'percentage of differing pixels still counted as a match', '0.1')
   .option('--pixel-threshold <0-1>', 'per-pixel colour tolerance passed to pixelmatch', '0.1')
@@ -353,10 +353,45 @@ function ignoreBrokenPipe(): void {
   }
 }
 
+/**
+ * Marker that hides a negative number from commander's option parser.
+ *
+ * Minecraft coordinates are routinely negative, and `teleport -10 5 -10` was rejected with
+ * "unknown option '-10'". `--` is not a usable answer: it has to come before every operand, so it
+ * would swallow the command's own flags too, and no reasonable caller thinks to write it. Nothing
+ * in this CLI takes a numeric option name, so a token that looks like a negative number is one.
+ */
+const NEGATIVE_NUMBER_MARKER = '\u0000';
+
+function hideNegativeNumbers(argv: readonly string[]): string[] {
+  return argv.map((arg) => (/^-\d+(\.\d+)?$/.test(arg) ? `${NEGATIVE_NUMBER_MARKER}${arg}` : arg));
+}
+
+function reveal(value: unknown): unknown {
+  if (typeof value === 'string' && value.startsWith(NEGATIVE_NUMBER_MARKER)) {
+    return value.slice(NEGATIVE_NUMBER_MARKER.length);
+  }
+  if (Array.isArray(value)) {
+    return value.map(reveal);
+  }
+  return value;
+}
+
+// Undone in one place, after commander has finished parsing and before any command sees its
+// arguments, so no individual command has to know this happened.
+program.hook('preAction', (_parent, command) => {
+  const withArgs = command as unknown as { processedArgs: unknown[] };
+  withArgs.processedArgs = withArgs.processedArgs.map(reveal);
+  const options = command.opts() as Record<string, unknown>;
+  for (const [key, value] of Object.entries(options)) {
+    options[key] = reveal(value);
+  }
+});
+
 async function main(): Promise<void> {
   ignoreBrokenPipe();
   try {
-    await program.parseAsync(process.argv);
+    await program.parseAsync(hideNegativeNumbers(process.argv));
   } catch (error) {
     if (error instanceof ProtocolError) {
       process.stderr.write(`error: ${error.message}\n`);

@@ -69,8 +69,21 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     ['username', DEFAULT_USERNAME],
     ['world', result.session.world],
     ['eval', String(hello['evalEnabled'] ?? false)],
-    ['mods', hello['mods'] as string[]],
+    // Fabric loads its API as ~50 separate modules, which turns this into a wall of names that
+    // says nothing. What a caller needs from it is whether the mod under test is loaded.
+    ['mods', summariseMods(hello['mods'] as string[] | undefined)],
   ]);
+}
+
+/** The mod list, shortened once it stops being readable. */
+function summariseMods(mods: string[] | undefined, limit = 12): string[] {
+  if (mods === undefined) {
+    return [];
+  }
+  if (mods.length <= limit) {
+    return mods;
+  }
+  return [...mods.slice(0, limit), `... and ${mods.length - limit} more`];
 }
 
 export async function runStop(global: GlobalOptions, options: { port?: string | undefined } = {}): Promise<void> {

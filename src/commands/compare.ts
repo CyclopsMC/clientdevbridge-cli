@@ -42,10 +42,12 @@ export function rendererKey(raw: string | null | undefined): string {
 
 export async function runCompare(global: GlobalOptions, name: string, options: CompareOptions): Promise<void> {
   await withClient(global, async ({ client, paths }) => {
+    // --region deliberately does not reach the screenshot call. It is a comparison-time filter --
+    // "ignore everything outside this rectangle" -- and cropping the capture but not the golden is
+    // what made it unusable: it always failed with a size mismatch that blamed the window size.
+    // Both images are cropped, below, by the same rectangle.
     const params: Record<string, unknown> = {};
-    if (options.region !== undefined) {
-      params['region'] = parseRegion(options.region, options.space);
-    }
+    const rawRegion = options.region === undefined ? null : parseRegion(options.region, options.space);
     if (options.afterTicks !== undefined) {
       params['afterTicks'] = Number(options.afterTicks);
     }
@@ -57,6 +59,8 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
     const goldenPath = goldenPathFor(paths.golden, name, renderer);
 
     if (options.update) {
+      // The golden is stored whole even when --region is given, so the same golden can later be
+      // compared under any region, or none.
       fs.mkdirSync(path.dirname(goldenPath), { recursive: true });
       fs.writeFileSync(goldenPath, actualPng);
       if (global.json) {
@@ -76,8 +80,29 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
       );
     }
 
-    const golden = PNG.sync.read(fs.readFileSync(goldenPath));
-    const actual = PNG.sync.read(actualPng);
+    const wholeGolden = PNG.sync.read(fs.readFileSync(goldenPath));
+    const wholeActual = PNG.sync.read(actualPng);
+
+    // Both images are in pixels; a region given in GUI space has to be scaled to match, using the
+    // scale the client reported with this very screenshot rather than a remembered one.
+    const region = rawRegion === null ? null : toPixelRegion(rawRegion, Number(shot['guiScale'] ?? 1));
+
+    if (region !== null) {
+      const tooBig = [
+        { label: 'golden image', image: wholeGolden },
+        { label: 'screenshot', image: wholeActual },
+      ].find(({ image }) => region.x + region.width > image.width || region.y + region.height > image.height);
+      if (tooBig !== undefined) {
+        throw new CliError(
+          `--region ${region.x},${region.y},${region.width},${region.height} does not fit inside the ` +
+            `${tooBig.label}, which is ${tooBig.image.width}x${tooBig.image.height}.`,
+          1,
+          'Regions are in pixel space unless --space gui is given.',
+        );
+      }
+    }
+    const golden = region === null ? wholeGolden : crop(wholeGolden, region);
+    const actual = region === null ? wholeActual : crop(wholeActual, region);
 
     if (golden.width !== actual.width || golden.height !== actual.height) {
       const actualPath = path.join(paths.diffs, `${name}-actual.png`);
@@ -97,6 +122,8 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
             `${actual.width}x${actual.height}.`,
         );
         line('Pin the window with `clientdevbridge resize` before comparing, or re-record with --update.');
+        line('(--region is applied to both images, so it is never the cause of a size mismatch.)');
+        line('The screenshot that did not match was written to:');
         printPath(path.resolve(actualPath));
       }
       process.exitCode = 1;
@@ -135,6 +162,9 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
           ` Golden: ${goldenPath}`,
       );
       printPath(path.resolve(diffPath as string));
+      if (!global.quiet) {
+        line(`The screenshot itself is beside it, as ${path.basename(diffPath as string).replace(/-diff\.png$/, '-actual.png')}`);
+      }
       if (!global.quiet) {
         line(
           'If the diff is concentrated on an animated block (lava, fire, water, a portal), on a ' +
@@ -201,4 +231,28 @@ function pruneDiffs(directory: string, name: string, keep = 10): void {
       }
     }
   }
+}
+
+interface PixelRegion {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function toPixelRegion(raw: Record<string, unknown>, guiScale: number): PixelRegion {
+  const factor = raw['space'] === 'pixel' ? 1 : guiScale;
+  return {
+    x: Math.round(Number(raw['x']) * factor),
+    y: Math.round(Number(raw['y']) * factor),
+    width: Math.round(Number(raw['w']) * factor),
+    height: Math.round(Number(raw['h']) * factor),
+  };
+}
+
+/** Cuts a rectangle out of a decoded PNG, so both sides of a comparison can be narrowed alike. */
+function crop(image: PNG, region: PixelRegion): PNG {
+  const out = new PNG({ width: region.width, height: region.height });
+  PNG.bitblt(image, out, region.x, region.y, region.width, region.height, 0, 0);
+  return out;
 }
