@@ -1,6 +1,19 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Added
+* `use`, a right-click with the held item, for everything that leaves no screen behind: placing a
+  block or a cable part, tools, wrenching with `--sneak`.
+* `--face` and `--at` on `use`, `open-gui` and `inspect-gui`, which say where on a block to aim.
+  Multipart blocks — Integrated Dynamics' cables and anything else on CyclopsCore — decide what was
+  clicked by casting a ray from the player's eye, so without a side there was no way to reach a
+  part's GUI at all.
+* `block` prints whatever a mod's `BlockExtractors` registration says distinguishes one instance of
+  its block entity from another.
+
 <a name="v0.1.0"></a>
 ## [v0.1.0] - 2026-08-30
 

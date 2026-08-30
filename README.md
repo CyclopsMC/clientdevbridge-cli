@@ -155,6 +155,23 @@ reporting success and leaving you looking at stale code.
 `eval` is an escape hatch for what no command covers, with `mc`, `player`, `level`, `screen` and
 `server` bound. It is opt-in and localhost-only, like the whole bridge.
 
+### It can aim at one side of a block
+
+Most blocks behave the same whichever side you click. Multipart blocks — Integrated Dynamics'
+cables, and anything else built on CyclopsCore — decide what you clicked by casting a ray from the
+player's eye, so the side is the whole interaction:
+
+```console
+$ clientdevbridge use 0 4 2 --face up
+used the main hand on the up side of 0,4,2: SUCCESS
+
+$ clientdevbridge open-gui 0 4 2 --face up
+screen: org.cyclops.integrateddynamics.client.gui.container.ContainerScreenPartWriter
+```
+
+`use` is the general right-click, for anything that leaves no screen behind: placing a block or a
+part, using a tool, wrenching with `--sneak`. `open-gui` is `use` plus a wait for a screen.
+
 ## Output conventions
 
 These exist so an agent reading stdout can act on it without guessing:

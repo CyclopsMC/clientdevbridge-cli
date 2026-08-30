@@ -14,6 +14,7 @@ import {
   runInventory,
   runLook,
   runSetblock,
+  runUse,
   runTeleport,
   runWorldLeave,
   runWorldList,
@@ -218,7 +219,19 @@ program
   .command('open-gui <x> <y> <z>')
   .description("right-click a block to open its GUI")
   .option('--no-approach', 'do not teleport the player within reach first')
+  .option('--face <face>', 'which side to aim at: down, up, north, south, east, west')
+  .option('--at <x,y,z>', 'aim at this world point on the block, instead of a face centre')
   .action(async (x, y, z, options) => runOpenGui(globals(), x, y, z, options));
+
+program
+  .command('use <x> <y> <z>')
+  .description('right-click a block with the held item, for placing and tools')
+  .option('--no-approach', 'do not teleport the player within reach first')
+  .option('--face <face>', 'which side to aim at: down, up, north, south, east, west')
+  .option('--at <x,y,z>', 'aim at this world point on the block, instead of a face centre')
+  .option('--sneak', 'hold sneak, which some blocks read to pick a different interaction', false)
+  .option('--hand <hand>', "'main' or 'off'", 'main')
+  .action(async (x, y, z, options) => runUse(globals(), x, y, z, options));
 
 program
   .command('close-screen')
@@ -229,6 +242,8 @@ program
   .command('inspect-gui <x> <y> <z>')
   .description('open a block GUI, print its outline, and write a screenshot — the usual starting point')
   .option('--no-approach', 'do not teleport the player within reach first')
+  .option('--face <face>', 'which side to aim at: down, up, north, south, east, west')
+  .option('--at <x,y,z>', 'aim at this world point on the block, instead of a face centre')
   .option('--name <name>', 'screenshot file name')
   .action(async (x, y, z, options) => runInspectGui(globals(), x, y, z, options));
 

@@ -4,6 +4,7 @@ import { centre, label, simpleType, type Snapshot, snapshotSchema } from '../sna
 import { CliError } from '../errors.js';
 import type { BridgeClient } from '../protocol/client.js';
 import { type GlobalOptions, timestampName, withClient, writeBase64 } from './context.js';
+import { aimParams, type AimOptions } from './input.js';
 
 export async function fetchSnapshot(
   client: BridgeClient,
@@ -151,12 +152,12 @@ export async function runInspectGui(
   x: string,
   y: string,
   z: string,
-  options: { approach: boolean; name?: string | undefined },
+  options: { approach: boolean; name?: string | undefined } & AimOptions,
 ): Promise<void> {
   await withClient(global, async ({ client, paths }) => {
     const opened = await client.call<Record<string, unknown>>(
       'screen.open',
-      { blockPos: [Number(x), Number(y), Number(z)], approach: options.approach },
+      { blockPos: [Number(x), Number(y), Number(z)], approach: options.approach, ...aimParams(options) },
       60_000,
     );
 

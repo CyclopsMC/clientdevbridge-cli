@@ -1,6 +1,7 @@
 import { line, printJson } from '../output.js';
 import { type GlobalOptions, withClient } from './context.js';
 import { CliError, EXIT_PROTOCOL } from '../errors.js';
+import { aimParams, type AimOptions } from './input.js';
 
 export interface WorldResetOptions {
   readonly name?: string | undefined;
@@ -133,6 +134,14 @@ export async function runBlock(
     const blockEntity = result['blockEntity'] as Record<string, unknown> | null;
     if (blockEntity !== null) {
       line(`block entity: ${blockEntity['type']}`);
+      // Whatever the owning mod said distinguishes this instance -- which side of a cable carries
+      // which part, say. Without it a cable with a part and a bare one read identically.
+      const details = blockEntity['details'] as Record<string, unknown> | undefined;
+      if (details !== undefined) {
+        for (const [key, value] of Object.entries(details)) {
+          line(`  ${key}: ${String(value)}`);
+        }
+      }
       if (blockEntity['nbt'] !== undefined) {
         line(String(blockEntity['nbt']));
       }
@@ -244,5 +253,58 @@ export async function runInventory(global: GlobalOptions): Promise<void> {
     if (!global.quiet) {
       line(`# selected hotbar slot ${result.selected}`);
     }
+  });
+}
+
+/**
+ * Right-clicks a block with whatever is held.
+ *
+ * `open-gui` is this plus a wait for a screen, and it fails when none appears. Most interactions
+ * never open one -- placing a block or a cable part, using a tool, wrenching -- so they need a
+ * command that reports what changed rather than one that treats a quiet click as an error.
+ */
+export async function runUse(
+  global: GlobalOptions,
+  x: string,
+  y: string,
+  z: string,
+  options: { approach: boolean; sneak: boolean; hand: string } & AimOptions,
+): Promise<void> {
+  await withClient(global, async ({ client }) => {
+    const position = parsePosition(x, y, z);
+    const result = await client.call<Record<string, unknown>>(
+      'world.use',
+      {
+        blockPos: [position['x'], position['y'], position['z']],
+        approach: options.approach,
+        sneak: options.sneak,
+        hand: options.hand,
+        ...aimParams(options),
+      },
+      60_000,
+    );
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    const pos = (result['pos'] as number[]).join(',');
+    line(`used the ${options.hand} hand on the ${result['face']} side of ${pos}: ${result['result']}`);
+    // A use is only visible as a difference, and which difference depends on what was clicked. None
+    // of them is reliable alone -- creative consumes nothing, and a cable gaining a part changes
+    // neither its id nor its state -- so the interaction's own result above is the one to trust,
+    // and these say what came of it.
+    const changes: string[] = [];
+    if (result['blockBefore'] !== result['blockAfter']) {
+      changes.push(`block ${result['blockBefore']} -> ${result['blockAfter']}`);
+    }
+    if (result['heldBefore'] !== result['heldAfter']) {
+      changes.push(`held ${result['heldBefore']} -> ${result['heldAfter']}`);
+    }
+    if (result['screenOpened'] === true) {
+      changes.push(`screen ${result['screenClass']}`);
+    }
+    line(changes.length === 0
+      ? 'no visible change to the block, the hand or the screen'
+      : changes.join('\n'));
   });
 }

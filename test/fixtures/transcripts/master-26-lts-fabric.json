@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-30T01:30:28.243Z",
+  "recordedAt": "2026-08-30T14:45:38.450Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -80,8 +80,8 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 219,
-          "fps": 4,
+          "tick": 189,
+          "fps": 7,
           "gameDir": "/home/user/cdb-26/e2e/consumer/loader-fabric/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
@@ -115,7 +115,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 221
+          "tick": 191
         }
       }
     },
@@ -138,7 +138,7 @@
             "[ERROR] [com.mojang.blaze3d.platform.Window] 65547: X11: Standard cursor shape unavailable"
           ],
           "level": "warn",
-          "buffered": 1189
+          "buffered": 1182
         }
       }
     },
@@ -538,7 +538,7 @@
                 "item": "minecraft:diamond",
                 "count": 5,
                 "name": "Diamond",
-                "components": "{minecraft:repair_cost=>0, minecraft:break_sound=>Reference{ResourceKey[minecraft:sound_event / minecraft:entity.item.break]=SoundEvent[location=minecraft:entity.item.break, fixedRange=Optional.empty]}, minecraft:provides_trim_material=>Reference{ResourceKey[minecraft:trim_material / minecraft:diamond]=TrimMaterial[assets=MaterialAssetGroup[base=AssetInfo[suffix=diamond], overrides={ResourceKey[minecraft:equipment_asset / minecraft:diamond]=AssetInfo[suffix=diamond_darker]}], description=translation{key='trim_material.minecraft.diamond', args=[]}[style={color=#6EECD2}]]}, minecraft:use_effects=>UseEffects[canSprint=false, interactVibrations=true, speedMultiplier=0.2], minecraft:enchantments=>ItemEnchantments{enchantments={}}, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[]], minecraft:max_stack_size=>64, minecraft:tooltip_display=>TooltipDisplay[hideTooltip=false, hiddenComponents={}], minecraft:rarity=>COMMON, minecraft:item_model=>minecraft:diamond, minecraft:item_name=>translation{key='item.minecraft.diamond', args=[]}, minecraft:swing_animation=>SwingAnimation[type=WHACK, duration=6], minecraft:lore=>ItemLore[lines=[], styledLines=[]]}",
+                "components": "{minecraft:enchantments=>ItemEnchantments{enchantments={}}, minecraft:rarity=>COMMON, minecraft:max_stack_size=>64, minecraft:repair_cost=>0, minecraft:item_model=>minecraft:diamond, minecraft:attribute_modifiers=>ItemAttributeModifiers[modifiers=[]], minecraft:item_name=>translation{key='item.minecraft.diamond', args=[]}, minecraft:use_effects=>UseEffects[canSprint=false, interactVibrations=true, speedMultiplier=0.2], minecraft:lore=>ItemLore[lines=[], styledLines=[]], minecraft:break_sound=>Reference{ResourceKey[minecraft:sound_event / minecraft:entity.item.break]=SoundEvent[location=minecraft:entity.item.break, fixedRange=Optional.empty]}, minecraft:provides_trim_material=>Reference{ResourceKey[minecraft:trim_material / minecraft:diamond]=TrimMaterial[assets=MaterialAssetGroup[base=AssetInfo[suffix=diamond], overrides={ResourceKey[minecraft:equipment_asset / minecraft:diamond]=AssetInfo[suffix=diamond_darker]}], description=translation{key='trim_material.minecraft.diamond', args=[]}[style={color=#6EECD2}]]}, minecraft:swing_animation=>SwingAnimation[type=WHACK, duration=6], minecraft:tooltip_display=>TooltipDisplay[hideTooltip=false, hiddenComponents={}]}",
                 "x": 133,
                 "y": 179,
                 "hovered": false
@@ -624,7 +624,7 @@
         "id": 9,
         "error": {
           "code": -32601,
-          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
+          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, world.use, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
         }
       }
     },
@@ -661,6 +661,55 @@
         "error": {
           "code": -32602,
           "message": "Missing required parameter 'ticks'"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "method": "screen.close",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "result": {
+          "screenClass": null
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "method": "world.use",
+        "params": {
+          "blockPos": [
+            0,
+            4,
+            2
+          ],
+          "face": "up"
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "result": {
+          "pos": [
+            0,
+            4,
+            2
+          ],
+          "face": "up",
+          "result": "SUCCESS",
+          "blockBefore": "Block{minecraft:crafting_table}",
+          "blockAfter": "Block{minecraft:crafting_table}",
+          "heldBefore": "minecraft:diamond x5",
+          "heldAfter": "minecraft:diamond x5",
+          "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
+          "screenOpened": true
         }
       }
     }

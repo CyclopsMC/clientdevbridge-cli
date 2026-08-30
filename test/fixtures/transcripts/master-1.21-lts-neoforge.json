@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-30T01:28:14.261Z",
+  "recordedAt": "2026-08-30T14:43:35.743Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -33,8 +33,8 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 121,
-          "fps": 5,
+          "tick": 113,
+          "fps": 3,
           "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-neoforge/runs/client",
           "dimension": "minecraft:overworld",
           "player": {
@@ -68,7 +68,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 123
+          "tick": 115
         }
       }
     },
@@ -577,7 +577,7 @@
         "id": 9,
         "error": {
           "code": -32601,
-          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
+          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, world.use, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
         }
       }
     },
@@ -614,6 +614,55 @@
         "error": {
           "code": -32602,
           "message": "Missing required parameter 'ticks'"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "method": "screen.close",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "result": {
+          "screenClass": null
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "method": "world.use",
+        "params": {
+          "blockPos": [
+            0,
+            4,
+            2
+          ],
+          "face": "up"
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "result": {
+          "pos": [
+            0,
+            4,
+            2
+          ],
+          "face": "up",
+          "result": "SUCCESS",
+          "blockBefore": "Block{minecraft:crafting_table}",
+          "blockAfter": "Block{minecraft:crafting_table}",
+          "heldBefore": "minecraft:diamond x5",
+          "heldAfter": "minecraft:diamond x5",
+          "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
+          "screenOpened": true
         }
       }
     }

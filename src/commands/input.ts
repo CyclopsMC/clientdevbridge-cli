@@ -123,17 +123,53 @@ export async function runDrag(
   });
 }
 
+/** The faces a block has, for `--face`. */
+const FACES = ['down', 'up', 'north', 'south', 'east', 'west'] as const;
+
+export interface AimOptions {
+  readonly face?: string | undefined;
+  readonly at?: string | undefined;
+}
+
+/**
+ * Turns `--face`/`--at` into the aim the protocol takes.
+ *
+ * Most blocks read the hit result they are handed and behave the same whichever face it names, so
+ * aiming stays optional. Multipart blocks -- a cable with parts on its sides -- do not: they work
+ * out what was clicked by casting a ray from the player's eye, so the side has to be said out loud
+ * or the click lands on whichever part happens to be in the way.
+ */
+export function aimParams(options: AimOptions): Record<string, unknown> {
+  const params: Record<string, unknown> = {};
+  if (options.face !== undefined) {
+    const face = options.face.toLowerCase();
+    if (!(FACES as readonly string[]).includes(face)) {
+      throw new CliError(`'${options.face}' is not a face.`, 2, `Use one of: ${FACES.join(', ')}.`);
+    }
+    params['face'] = face;
+  }
+  if (options.at !== undefined) {
+    const parts = options.at.split(',').map((value) => Number(value.trim()));
+    if (parts.length !== 3 || parts.some((value) => !Number.isFinite(value))) {
+      throw new CliError(`--at expects 'x,y,z', got '${options.at}'.`, 2,
+        'The point is in world coordinates, so a face centre looks like 0.5,5,2.5.');
+    }
+    params['at'] = parts;
+  }
+  return params;
+}
+
 export async function runOpenGui(
   global: GlobalOptions,
   x: string,
   y: string,
   z: string,
-  options: { approach: boolean },
+  options: { approach: boolean } & AimOptions,
 ): Promise<void> {
   await withClient(global, async ({ client }) => {
     const result = await client.call<Record<string, unknown>>(
       'screen.open',
-      { blockPos: [Number(x), Number(y), Number(z)], approach: options.approach },
+      { blockPos: [Number(x), Number(y), Number(z)], approach: options.approach, ...aimParams(options) },
       60_000,
     );
     if (global.json) {

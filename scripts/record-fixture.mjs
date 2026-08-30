@@ -46,6 +46,10 @@ const SCRIPT = [
   ['nope.does.not.exist', {}],
   ['wait.ticks', { ticks: -1 }],
   ['wait.ticks', { notTicks: 1 }],
+  // A right-click aimed at a named side. Recorded last, and after closing what the setup opened,
+  // so it neither disturbs the snapshot above nor depends on what is on screen.
+  ['screen.close', {}],
+  ['world.use', { blockPos: [0, 4, 2], face: 'up' }],
 ];
 
 const socket = new WebSocket(`ws://127.0.0.1:${port}`);

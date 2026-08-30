@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-08-30T01:29:03.851Z",
+  "recordedAt": "2026-08-30T14:44:16.246Z",
   "hello": {
     "jsonrpc": "2.0",
     "method": "hello",
@@ -85,7 +85,7 @@
           "loaded": true,
           "inWorld": true,
           "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
-          "tick": 172,
+          "tick": 157,
           "fps": 2,
           "gameDir": "/home/user/ClientDevBridge/e2e/consumer/loader-fabric/runs/client",
           "dimension": "minecraft:overworld",
@@ -120,7 +120,7 @@
         "jsonrpc": "2.0",
         "id": 6,
         "result": {
-          "tick": 174
+          "tick": 159
         }
       }
     },
@@ -143,7 +143,7 @@
             "[WARN] [net.minecraft.client.renderer.ShaderInstance] Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program."
           ],
           "level": "warn",
-          "buffered": 1308
+          "buffered": 1306
         }
       }
     },
@@ -629,7 +629,7 @@
         "id": 9,
         "error": {
           "code": -32601,
-          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
+          "message": "Unknown method 'nope.does.not.exist'. Known methods: status, screenshot, wait.ticks, wait.for, log.tail, world.reset, world.load, world.leave, world.list, world.command, world.block, world.use, input.mouseMove, input.mouseClick, input.mouseDrag, input.scroll, input.key, input.type, input.hold, screen.open, screen.close, player.look, player.teleport, player.inventory, player.hotbar, screen.snapshot, screen.tooltip, window.resize, eval"
         }
       }
     },
@@ -666,6 +666,55 @@
         "error": {
           "code": -32602,
           "message": "Missing required parameter 'ticks'"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "method": "screen.close",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "result": {
+          "screenClass": null
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "method": "world.use",
+        "params": {
+          "blockPos": [
+            0,
+            4,
+            2
+          ],
+          "face": "up"
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "result": {
+          "pos": [
+            0,
+            4,
+            2
+          ],
+          "face": "up",
+          "result": "SUCCESS",
+          "blockBefore": "Block{minecraft:crafting_table}",
+          "blockAfter": "Block{minecraft:crafting_table}",
+          "heldBefore": "minecraft:diamond x5",
+          "heldAfter": "minecraft:diamond x5",
+          "screenClass": "net.minecraft.client.gui.screens.inventory.CraftingScreen",
+          "screenOpened": true
         }
       }
     }
