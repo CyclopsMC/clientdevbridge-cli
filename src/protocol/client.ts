@@ -114,7 +114,7 @@ export class BridgeClient {
       throw new SessionError(
         `Protocol mismatch: this CLI speaks protocol ${SUPPORTED_PROTOCOL}, the ClientDevBridge mod speaks ${hello.protocol}. Please ${direction}.`,
         hello.protocol > SUPPORTED_PROTOCOL
-          ? 'npm install -g @cyclopsmc/clientdevbridge-cli@latest'
+          ? 'npm install -g cyclops-clientdevbridge-cli@latest'
           : 'Rebuild the ClientDevBridge mod, or pass --clientdevbridge-version to pick a matching build.',
       );
     }

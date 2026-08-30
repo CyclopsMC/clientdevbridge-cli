@@ -1,5 +1,5 @@
 {
-  "name": "@cyclopsmc/clientdevbridge-cli",
+  "name": "cyclops-clientdevbridge-cli",
   "version": "0.1.0",
   "description": "CLI that launches and drives a Minecraft dev client through the ClientDevBridge mod, for coding agents.",
   "keywords": [
@@ -34,9 +34,6 @@
   ],
   "engines": {
     "node": ">=20"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

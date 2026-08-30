@@ -6,7 +6,7 @@ Everything is a bash command, so this works identically in a local terminal, in 
 web, and in CI. There is no MCP server and nothing to configure.
 
 ```bash
-npm install -g @cyclopsmc/clientdevbridge-cli    # or use npx
+npm install -g cyclops-clientdevbridge-cli    # or use npx
 
 cd path/to/your/mod
 clientdevbridge doctor        # is this machine able to build and launch a client?
