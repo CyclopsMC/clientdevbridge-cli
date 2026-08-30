@@ -312,7 +312,14 @@ export async function runUseItem(
     throw new CliError(`--hand must be auto, main or off, but was '${options.hand}'.`, 2);
   }
   await withClient(global, async ({ client }) => {
-    const result = await client.call<Record<string, unknown>>('player.useItem', { hand }, 60_000);
+    const params: Record<string, unknown> = { hand };
+    if (options.waitScreen) {
+      // Five seconds. A container screen is opened by the server, so it arrives with a packet
+      // rather than on the tick the click was processed -- checking once was reporting "no screen
+      // opened" for items that had opened one.
+      params['waitScreenTicks'] = 100;
+    }
+    const result = await client.call<Record<string, unknown>>('player.useItem', params, 60_000);
     if (global.json) {
       printJson(result);
       return;
