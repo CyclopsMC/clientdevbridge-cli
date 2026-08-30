@@ -172,9 +172,10 @@ Booting is a minute or two and it throws away the world you built, so prefer `ho
 `restart`: keep one client alive for a whole session.
 
 `eval` is an escape hatch for what no command covers, with `mc`, `player`, `level`, `screen`,
-`server` and `dev` bound. `dev` builds the game objects a script cannot construct for itself —
-`dev.pos(0, 4, 2)`, `dev.blockEntity(...)`, `dev.nbt(...)`, `dev.item("minecraft:stone")` — because
-the game is loaded by a transforming class loader and the script engine is not. It is opt-in and
+`server` and `dev` bound. `dev` builds and reads the game objects a script cannot name for itself —
+`dev.pos(0, 4, 2)`, `dev.blockEntity(...)`, `dev.nbt(...)`, `dev.item("minecraft:stone")`,
+`dev.prop(0, 4, 2, "lit")` — because the game is loaded by a transforming class loader and the
+script engine is not. It is opt-in and
 localhost-only, like the whole bridge.
 
 ### It runs a whole script over one connection
@@ -198,6 +199,18 @@ close-screen
 It stops at the first failure and says which line, because in a script that builds something, step
 twelve is meaningless if step eleven did not happen. `--continue-on-error` runs the rest anyway,
 and `--json` prints one result object per command.
+
+### It can shift-click
+
+```bash
+clientdevbridge slot-click 12 --type quick_move
+clientdevbridge click --at 125,202 --shift
+```
+
+A screen works out that a click was a shift-click from the *real* keyboard state, which synthetic
+input cannot reach — and `Screen.mouseClicked` has nowhere to pass a modifier anyway. So the
+operation is named rather than inferred: `quick_move` is what a shift-click means. `--type` also
+takes `pickup`, `swap`, `clone`, `throw`, `quick_craft` and `pickup_all`.
 
 ### It edits a text field in one command
 

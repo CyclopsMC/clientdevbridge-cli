@@ -1,4 +1,4 @@
-import { line, printJson } from '../output.js';
+import { line, printJson, warn } from '../output.js';
 import { type GlobalOptions, withClient } from './context.js';
 import { CliError, EXIT_PROTOCOL } from '../errors.js';
 import { aimParams, type AimOptions } from './input.js';
@@ -193,7 +193,17 @@ export async function runTeleport(
       // Gravity acts between the teleport and the reply, so the reported y can be lower than the
       // one asked for. Saying so is the difference between a confusing number and an expected one.
       if (requested !== undefined && requested.some((value, index) => Math.abs(value - (pos[index] ?? 0)) > 0.01)) {
-        line(`(asked for ${requested.map((value) => value.toFixed(2)).join(', ')}; the player has since fallen or been pushed)`);
+        line(`(asked for ${requested.map((value) => value.toFixed(2)).join(', ')}; the player fell or was pushed on the way)`);
+      }
+      // The position above is a snapshot of something still moving, so anything measured from it --
+      // a screenshot most of all -- is of somewhere else by the time it is taken.
+      if (result['falling'] === true) {
+        warn(
+          'The player is still falling: nothing solid is under ' +
+            `${requested === undefined ? 'the target' : requested.map((value) => value.toFixed(0)).join(', ')}, ` +
+            'so this position is already out of date.',
+        );
+        line('Teleport onto a block, or place one first, before taking a screenshot.');
       }
     }
   });

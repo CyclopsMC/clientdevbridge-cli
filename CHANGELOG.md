@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+* `slot-click <slot> [--type quick_move|pickup|swap|clone|throw|quick_craft|pickup_all]`, and
+  `--shift` on `click`. A screen works out that a click was a shift-click from the real keyboard
+  state, which synthetic input cannot reach, so the operation is named rather than inferred. The
+  index is the one `snapshot --json` already reports; `--at` resolves a point to the slot under it.
 * `batch <file|->`, running many commands over a single connection. Every command otherwise opens a
   socket, does one thing and closes it, which costs more than the work when a script issues fifty in
   a row. It stops at the first failure with its line number; `--continue-on-error` runs the rest and
@@ -25,6 +29,10 @@ All notable changes to this project will be documented in this file.
   part's GUI at all.
 * `block` prints whatever a mod's `BlockExtractors` registration says distinguishes one instance of
   its block entity from another.
+
+### Fixed
+* `teleport` no longer prints a position the player is about to leave. The mod now waits for them to
+  land rather than merely arrive, and warns when nothing is holding them up.
 
 <a name="v0.1.0"></a>
 ## [v0.1.0] - 2026-08-30

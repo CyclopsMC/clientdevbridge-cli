@@ -27,8 +27,19 @@ async function reportAfterInput(global: GlobalOptions, result: Record<string, un
 
 export async function runClick(
   global: GlobalOptions,
-  options: { at?: string | undefined; widget?: string | undefined; button: string; space: string },
+  options: { at?: string | undefined; widget?: string | undefined; button: string; space: string; shift?: boolean },
 ): Promise<void> {
+  if (options.shift === true) {
+    // Sugar for the only modifier anyone wants. It is a different call rather than a flag on this
+    // one because a shift-click is not a click with a flag: the screen never sees the modifier, so
+    // the operation has to be named. See runSlotClick.
+    if (options.at === undefined) {
+      throw new CliError('click --shift needs --at x,y over a slot.', 2,
+        'Or use `slot-click <index> --type quick_move`, which takes the index a snapshot reports.');
+    }
+    await runSlotClick(global, undefined, { at: options.at, type: 'quick_move', button: options.button });
+    return;
+  }
   await withClient(global, async ({ client }) => {
     let point: { x: number; y: number };
     if (options.widget !== undefined) {
@@ -45,6 +56,47 @@ export async function runClick(
       space: options.space,
     });
     await reportAfterInput(global, result);
+  });
+}
+
+export const CLICK_TYPES = ['pickup', 'quick_move', 'swap', 'clone', 'throw', 'quick_craft', 'pickup_all'] as const;
+
+/**
+ * Clicks a container slot with an explicit operation, which is the only way to shift-click.
+ *
+ * A screen works out what a click meant from the button and the real keyboard state before it acts,
+ * and synthetic input cannot reach that state -- so the operation is named here rather than
+ * inferred. `quick_move` is shift-click; the rest are the other things a container click can be.
+ */
+export async function runSlotClick(
+  global: GlobalOptions,
+  slot: string | undefined,
+  options: { at?: string | undefined; type: string; button: string },
+): Promise<void> {
+  const type = options.type.toLowerCase();
+  if (!(CLICK_TYPES as readonly string[]).includes(type)) {
+    throw new CliError(`'${options.type}' is not a click type.`, 2, `Use one of: ${CLICK_TYPES.join(', ')}.`);
+  }
+  if (slot === undefined && options.at === undefined) {
+    throw new CliError('slot-click needs a slot index or --at x,y.', 2,
+      '`clientdevbridge snapshot --json` lists every slot with its index and position.');
+  }
+
+  await withClient(global, async ({ client }) => {
+    const params: Record<string, unknown> = { type, button: Number(options.button) };
+    if (slot === undefined) {
+      Object.assign(params, parsePoint(options.at as string, '--at'));
+    } else {
+      params['slot'] = Number(slot);
+    }
+    const result = await client.call<Record<string, unknown>>('input.slotClick', params);
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    if (!global.quiet) {
+      line(`${result['type']} on slot ${result['slot']}; screen: ${result['screenClass'] ?? 'none'}`);
+    }
   });
 }
 

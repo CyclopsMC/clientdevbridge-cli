@@ -32,6 +32,7 @@ import {
   runOpenGui,
   runScroll,
   runSetText,
+  runSlotClick,
   runType,
   runWaitFor,
 } from './commands/input.js';
@@ -168,7 +169,16 @@ program
   .option('--widget <text-or-path>', 'click the centre of the matching widget')
   .option('--button <n>', '0 left, 1 right, 2 middle', '0')
   .option('--space <space>', 'coordinate space for --at: gui or pixel', 'gui')
+  .option('--shift', 'shift-click the slot under --at, moving the stack to the other inventory', false)
   .action(async (options) => runClick(globals(), options));
+
+program
+  .command('slot-click [slot]')
+  .description('click a container slot with a named operation; quick_move is shift-click')
+  .option('--at <x,y>', 'find the slot under this point instead of giving its index')
+  .option('--type <type>', 'pickup, quick_move, swap, clone, throw, quick_craft or pickup_all', 'pickup')
+  .option('--button <n>', '0 left, 1 right, 2 middle', '0')
+  .action(async (slot, options) => runSlotClick(globals(), slot, options));
 
 program
   .command('type <text>')
