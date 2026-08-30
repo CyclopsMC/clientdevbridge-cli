@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import { ProtocolError, SessionError } from '../errors.js';
+import { LOOPBACK_HOSTS, urlHost } from '../loopback.js';
 import { type Hello, helloSchema, rpcNotificationSchema, rpcResponseSchema, SUPPORTED_PROTOCOL } from './types.js';
 
 export type NotificationListener = (method: string, params: Record<string, unknown>) => void;
@@ -37,9 +38,27 @@ export class BridgeClient {
     socket.on('error', (error) => this.failAll(`Connection error: ${error.message}`));
   }
 
+  /**
+   * Connects to the client on this port, over whichever loopback address it is listening on.
+   *
+   * The first address that answers wins. When none does, the failure reported is the one from
+   * 127.0.0.1: that is where a client is supposed to be, so it is the message that helps.
+   */
   public static async connect(options: ConnectOptions): Promise<BridgeClient> {
+    let first: unknown;
+    for (const host of LOOPBACK_HOSTS) {
+      try {
+        return await BridgeClient.connectTo(host, options);
+      } catch (error) {
+        first ??= error;
+      }
+    }
+    throw first;
+  }
+
+  private static async connectTo(host: string, options: ConnectOptions): Promise<BridgeClient> {
     const timeoutMs = options.timeoutMs ?? 15_000;
-    const url = `ws://127.0.0.1:${options.port}`;
+    const url = `ws://${urlHost(host)}:${options.port}`;
 
     const socket = new WebSocket(url, { handshakeTimeout: timeoutMs });
     const early: { method: string; params: Record<string, unknown> }[] = [];

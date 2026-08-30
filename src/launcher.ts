@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
 import { CliError, SessionError } from './errors.js';
+import { LOOPBACK_HOSTS } from './loopback.js';
 import { resolveJavaHome } from './java.js';
 import { detectProject, type Loader } from './detect.js';
 import { pinOptions, renderInitScript } from './initscript.js';
@@ -181,9 +182,21 @@ export function describePortOwner(port: number): string | null {
   return null;
 }
 
+/**
+ * Whether nothing is listening on this port, on any loopback address.
+ *
+ * Both families are probed because a client can be on either -- see LOOPBACK_HOSTS. Treating a
+ * client on ::1 as "the port is free" is the worst of the two errors: `start` would launch a
+ * second one and then wait out its whole timeout for the first.
+ */
 export async function isPortFree(port: number): Promise<boolean> {
+  const results = await Promise.all(LOOPBACK_HOSTS.map((host) => isPortFreeOn(host, port)));
+  return results.every((free) => free);
+}
+
+function isPortFreeOn(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const socket = net.connect({ port, host: '127.0.0.1' });
+    const socket = net.connect({ port, host });
     socket.once('connect', () => {
       socket.destroy();
       resolve(false);
@@ -231,7 +244,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     const owner = describePortOwner(options.port);
     const bridge = await describeBridgeOnPort(options.port);
     throw new CliError(
-      `Port ${options.port} on 127.0.0.1 is already in use, so the client could not claim it.`,
+      `Port ${options.port} on localhost is already in use, so the client could not claim it.`,
       2,
       hintForOccupiedPort(options.port, owner, bridge, project.projectDir),
     );
@@ -471,14 +484,44 @@ async function waitForHandshake(
   // stops. Ask the JVM for a thread dump before giving up, so the render thread's stack lands in
   // the game log where whoever debugs this will look.
   const dumped = await requestThreadDump();
+  // A port that was never reachable at all is the case that reads as "the client never started"
+  // while the client is in fact running and listening -- it just bound an address this CLI did not
+  // try. Naming the sockets that do exist turns that into a one-line diagnosis.
+  const listeners = attempts === 0 ? describeListeners(session.port) : null;
   throw new SessionError(
     `The client did not answer on port ${session.port} within ${Math.round(timeoutMs / 1000)}s.\n` +
-      `Reached the port ${attempts} time(s); last time, ${lastObservation}.\n${tailFile(gradleLog, 25)}`,
+      `Reached the port ${attempts} time(s); last time, ${lastObservation}.\n` +
+      (listeners === null ? '' : `Sockets listening on that port: ${listeners}\n`) +
+      tailFile(gradleLog, 25),
     dumped
       ? `A thread dump was appended to ${gradleLog}. The stack of "Render thread" is what stalled; ` +
         'increase --timeout only if it shows real work in progress.'
       : `Increase --timeout, or read the full log at ${gradleLog}.`,
   );
+}
+
+/**
+ * What is listening on this port, as the operating system sees it.
+ *
+ * Only used to explain a failure, so every way of finding out is best-effort: a machine with
+ * neither `ss` nor `lsof` simply gets a message saying so.
+ */
+function describeListeners(port: number): string {
+  for (const [command, args] of [
+    ['ss', ['-ltnH', `sport = :${port}`]],
+    ['lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN']],
+  ] as const) {
+    try {
+      const output = execFileSync(command, [...args], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      return output === '' ? `none (${command} found no listening socket)` : `\n${output}`;
+    } catch {
+      // Not installed, or it failed; try the next one.
+    }
+  }
+  return 'unknown (neither ss nor lsof is available)';
 }
 
 /** Whether a pid belongs to a JVM, which is the only kind of process SIGQUIT is safe to send to. */
