@@ -1,6 +1,6 @@
 {
   "name": "cyclops-clientdevbridge-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI that launches and drives a Minecraft dev client through the ClientDevBridge mod, for coding agents.",
   "keywords": [
     "minecraft",

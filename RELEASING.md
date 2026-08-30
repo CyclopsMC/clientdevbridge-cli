@@ -9,20 +9,17 @@ version map names a line that has never been published is a release that cannot 
 | Trigger | What runs |
 |---|---|
 | every push and pull request | `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, on Node 20 and 22 |
-| a tag matching `v*` | the above, then `npm publish --provenance` |
+
+Publishing is deliberately **not** automated: it is done by hand, from a checkout, by someone who
+has just watched those checks pass.
 
 `npm test` includes the recorded-transcript replay, which checks this CLI against every supported
 ClientDevBridge branch without booting Minecraft. A release that breaks one branch fails there.
 
 ## One-time setup
 
-1. Add a repository secret **`NPM_TOKEN`**: an npm *automation* token that may publish
-   `cyclops-clientdevbridge-cli`. A granular token restricted to other packages does not work;
-   before the first publish the package does not exist yet, so the token needs the permission to
-   create it.
-2. Nothing else. The package name is unscoped, so it is public by default and needs no npm
-   organisation and no `--access` flag; `--provenance` uses the workflow's OIDC identity, which the
-   workflow already requests via `id-token: write`, and needs the repository to be public.
+`npm login` as an account that may publish `cyclops-clientdevbridge-cli`. That is all: the package
+name is unscoped, so it is public by default and needs no npm organisation and no `--access` flag.
 
 ## Cutting a release
 
@@ -50,15 +47,18 @@ npm version <patch|minor|major>     # bumps package.json, writes CHANGELOG.md, c
 git push && git push --tags
 ```
 
-`onversion` needs a previous `v*` tag to compare against, so the **first** release cannot use it —
-`CHANGELOG.md` was seeded with `manual-git-changelog init` instead, and the first release is just
-its tag:
+(`onversion` needs a previous `v*` tag to compare against. The first release had none, so
+`CHANGELOG.md` was seeded with `manual-git-changelog init` instead; every release since has a tag
+behind it, so this no longer comes up.)
+
+Then publish, from a clean checkout of the tag:
 
 ```bash
-git tag v0.1.0 && git push --tags
+git status --porcelain     # must be empty; npm packs the working tree, not the commit
+npm publish                # prepublishOnly rebuilds dist/, which is not in git
 ```
 
-Watch the `Publish to npm` job. On success:
+Afterwards:
 
 ```bash
 npm view cyclops-clientdevbridge-cli version

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs';
 import { Command } from 'commander';
+import { packageVersion } from './version.js';
 import { CliError, EXIT_OK, EXIT_PROTOCOL, EXIT_SESSION, ProtocolError } from './errors.js';
 import type { GlobalOptions } from './commands/context.js';
 import { runRestart, runStart, runStatus, runStop, START_DEFAULTS } from './commands/lifecycle.js';
@@ -44,7 +45,7 @@ program
     'Launch and drive a Minecraft dev client from the shell, for coding agents.\n' +
       'Screenshots are written to files and their paths printed; open them with your agent\'s file-reading tool.',
   )
-  .version('0.1.0')
+  .version(packageVersion())
   .option('-p, --project <dir>', 'the mod project to drive', process.cwd())
   .option('--json', 'print the raw protocol result instead of readable text', false)
   .option('-q, --quiet', 'print only the essential output', false)
