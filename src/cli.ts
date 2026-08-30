@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as fs from 'node:fs';
 import { Command } from 'commander';
 import { CliError, EXIT_OK, EXIT_PROTOCOL, EXIT_SESSION, ProtocolError } from './errors.js';
 import type { GlobalOptions } from './commands/context.js';
@@ -51,7 +52,16 @@ program
 
 function globals(): GlobalOptions {
   const options = program.opts();
-  return { project: options['project'], json: options['json'], quiet: options['quiet'] };
+  const project = String(options['project']);
+  // Checked once, here, rather than in each command: a --project that does not exist otherwise
+  // reads as "Not running (no session recorded) in /typo", which is true and useless.
+  if (!fs.existsSync(project)) {
+    throw new CliError(`No such directory: ${project}`, 2, 'Check the path passed to --project.');
+  }
+  if (!fs.statSync(project).isDirectory()) {
+    throw new CliError(`--project must be a directory, but ${project} is a file.`, 2);
+  }
+  return { project, json: options['json'], quiet: options['quiet'] };
 }
 
 program
@@ -300,9 +310,9 @@ program
 program
   .command('resize')
   .description('set the window size and GUI scale, for reproducible screenshots')
-  .requiredOption('--width <px>', 'window width')
-  .requiredOption('--height <px>', 'window height')
-  .option('--gui-scale <n>', 'fixed GUI scale, or 0 for automatic')
+  .requiredOption('--width <px>', 'window width (required)')
+  .requiredOption('--height <px>', 'window height (required)')
+  .option('--gui-scale <n>', 'fixed GUI scale, or 0 for automatic; --width and --height are still required')
   .action(async (options) => runResize(globals(), options));
 
 program

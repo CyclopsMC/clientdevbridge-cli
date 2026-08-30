@@ -115,9 +115,14 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
     let diffPath: string | null = null;
     if (!match) {
       fs.mkdirSync(paths.diffs, { recursive: true });
-      diffPath = path.join(paths.diffs, `${name}-diff.png`);
+      // Timestamped, so comparing twice does not throw away the first failure. Chasing a
+      // regression usually means running compare several times, and the run before last is
+      // exactly the one worth looking at again.
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').replace('Z', '');
+      diffPath = path.join(paths.diffs, `${name}_${stamp}-diff.png`);
       fs.writeFileSync(diffPath, PNG.sync.write(diff));
-      fs.writeFileSync(path.join(paths.diffs, `${name}-actual.png`), actualPng);
+      fs.writeFileSync(path.join(paths.diffs, `${name}_${stamp}-actual.png`), actualPng);
+      pruneDiffs(paths.diffs, name);
     }
 
     if (global.json) {
@@ -132,9 +137,10 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
       printPath(path.resolve(diffPath as string));
       if (!global.quiet) {
         line(
-          'If the diff is concentrated on an animated block (lava, fire, water, a portal) or on a ' +
-            'toast popup, that is frame-to-frame animation rather than a regression: raise ' +
-            '--threshold, or pass --region to compare only the part that should hold still.',
+          'If the diff is concentrated on an animated block (lava, fire, water, a portal), on a ' +
+            'toast popup, or on the chat lines that commands like give and setblock leave on ' +
+            'screen for ten seconds, that is animation rather than a regression: wait it out, ' +
+            'raise --threshold, or pass --region to compare only the part that should hold still.',
         );
       }
     }
@@ -177,4 +183,22 @@ export async function runResize(
         `gui ${result['guiWidth']}x${result['guiHeight']} @ scale ${result['guiScale']}`,
     );
   });
+}
+
+/** Keeps the newest few diffs per golden, so the directory does not grow without limit. */
+function pruneDiffs(directory: string, name: string, keep = 10): void {
+  const suffixes = ['-diff.png', '-actual.png'];
+  for (const suffix of suffixes) {
+    const files = fs
+      .readdirSync(directory)
+      .filter((entry) => entry.startsWith(`${name}_`) && entry.endsWith(suffix))
+      .sort();
+    for (const stale of files.slice(0, Math.max(0, files.length - keep))) {
+      try {
+        fs.unlinkSync(path.join(directory, stale));
+      } catch {
+        // Someone else removed it, or it is open elsewhere; either way not worth failing a compare.
+      }
+    }
+  }
 }

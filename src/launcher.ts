@@ -104,6 +104,31 @@ function findLoomCaches(projectDir: string): string[] {
   return roots;
 }
 
+/**
+ * Asks whatever is listening on the bridge port who it is.
+ *
+ * A client on the port is not automatically an orphan: a mod developer with two checkouts open
+ * hits this constantly, and telling them to `kill` a perfectly healthy client of their own is bad
+ * advice given confidently. A ClientDevBridge client answers with the project it belongs to.
+ */
+export async function describeBridgeOnPort(
+  port: number,
+): Promise<{ projectDir: string | null; mcVersion: string; loader: string } | null> {
+  try {
+    const client = await BridgeClient.connect({ port, timeoutMs: 3_000 });
+    const hello = client.hello;
+    client.close();
+    return {
+      projectDir: hello.projectDir ?? null,
+      mcVersion: hello.mcVersion,
+      loader: hello.loader,
+    };
+  } catch {
+    // Not a bridge, or not answering: the caller falls back to the pid it can see.
+    return null;
+  }
+}
+
 export function describePortOwner(port: number): string | null {
   if (process.platform === 'win32') {
     return null;

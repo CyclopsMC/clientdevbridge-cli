@@ -178,7 +178,14 @@ export async function runTeleport(
     }
     if (!global.quiet) {
       const pos = result['pos'] as number[];
-      line(`Player at ${pos.map((value) => value.toFixed(2)).join(', ')}, facing ${result['yaw']}/${result['pitch']}.`);
+      const requested = result['requested'] as number[] | undefined;
+      const at = pos.map((value) => value.toFixed(2)).join(', ');
+      line(`Player at ${at}, facing ${result['yaw']}/${result['pitch']}.`);
+      // Gravity acts between the teleport and the reply, so the reported y can be lower than the
+      // one asked for. Saying so is the difference between a confusing number and an expected one.
+      if (requested !== undefined && requested.some((value, index) => Math.abs(value - (pos[index] ?? 0)) > 0.01)) {
+        line(`(asked for ${requested.map((value) => value.toFixed(2)).join(', ')}; the player has since fallen or been pushed)`);
+      }
     }
   });
 }

@@ -4,6 +4,7 @@ import {
   DEFAULT_PORT,
   DEFAULT_USERNAME,
   DEFAULT_WIDTH,
+  describeBridgeOnPort,
   describePortOwner,
   isPortFree,
   start,
@@ -73,7 +74,8 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
 }
 
 export async function runStop(global: GlobalOptions, options: { port?: string | undefined } = {}): Promise<void> {
-  const result = await stop(global.project, options.port === undefined ? undefined : Number(options.port));
+  const port = options.port === undefined ? DEFAULT_PORT : Number(options.port);
+  const result = await stop(global.project, port);
   if (global.json) {
     printJson(result);
     return;
@@ -87,10 +89,43 @@ export async function runStop(global: GlobalOptions, options: { port?: string | 
   }
   if (result.orphan !== null) {
     line('');
-    line(`But something is still listening on the bridge port: pid ${result.orphan}.`);
-    line(`That is an orphaned client whose session file is gone. Stop it with: kill ${result.orphan.split(' ')[0]}`);
+    for (const explanation of await describeOccupiedPort(port, result.orphan, global.project)) {
+      line(explanation);
+    }
     process.exitCode = 2;
   }
+}
+
+
+/**
+ * Explains what is holding the bridge port.
+ *
+ * "An orphaned client whose session file is gone" is one possibility and not the likely one: a mod
+ * developer with two checkouts open reaches this every time, and `kill <pid>` is confident, wrong
+ * advice about a client they are still using.
+ */
+async function describeOccupiedPort(port: number, pid: string, thisProject: string): Promise<string[]> {
+  const bridge = await describeBridgeOnPort(port);
+  if (bridge === null) {
+    return [
+      `Something is listening on port ${port}: pid ${pid}, and it does not answer the bridge protocol.`,
+      `Start elsewhere with --port <other>, or stop it with: kill ${pid.split(' ')[0]}`,
+    ];
+  }
+  const where = bridge.projectDir;
+  if (where !== null && path.resolve(where) !== path.resolve(thisProject)) {
+    return [
+      `A ClientDevBridge client is on port ${port} (pid ${pid}), but it belongs to another project:`,
+      `  ${where}  (Minecraft ${bridge.mcVersion}, ${bridge.loader})`,
+      `Drive it from there, stop it with: clientdevbridge --project ${where} stop`,
+      'or start this project on a different port with --port <other>.',
+    ];
+  }
+  return [
+    `A ClientDevBridge client for this project is on port ${port} (pid ${pid}), but its session`,
+    `file is gone (Minecraft ${bridge.mcVersion}, ${bridge.loader}), so the CLI cannot drive it.`,
+    `Stop it with: kill ${pid.split(' ')[0]}`,
+  ];
 }
 
 export async function runStatus(global: GlobalOptions): Promise<void> {
@@ -110,9 +145,9 @@ export async function runStatus(global: GlobalOptions): Promise<void> {
     line(`Not running (${reason}) in ${status.paths.projectDir}.`);
     if (orphan !== null) {
       line('');
-      line(`Something is still listening on port ${port}: pid ${orphan}.`);
-      line('That is an orphaned client whose session file is gone. Either reattach by restoring the');
-      line(`session, or stop it with: kill ${orphan.split(' ')[0]}`);
+      for (const explanation of await describeOccupiedPort(port, orphan, status.paths.projectDir)) {
+        line(explanation);
+      }
       return;
     }
     line('Start one with: clientdevbridge start');

@@ -12,6 +12,12 @@ export interface Check {
   readonly name: string;
   readonly ok: boolean;
   readonly detail: string;
+  /**
+   * True when the check passes only because the CLI works around something. Rendered as `warn`:
+   * calling a machine whose JAVA_HOME is too old `ok` is technically true and reads as a
+   * contradiction next to a detail that says "too old".
+   */
+  readonly workedAround?: boolean;
   /** What to actually do about it. Empty when the check passed. */
   readonly fix: string;
 }
@@ -88,10 +94,13 @@ function javaCheck(requiredMajor: number): Check {
     return {
       name: 'java',
       ok: true,
+      workedAround: true,
       detail:
         `Java ${current.major} ${where} is too old for this project, which needs ${requiredMajor}; ` +
         `Gradle will be run on ${substitute.home} (Java ${substitute.major}) instead`,
-      fix: '',
+      fix:
+        `Nothing has to be done -- 'clientdevbridge start' substitutes that JDK itself. To stop ` +
+        `every command mentioning it: export JAVA_HOME=${substitute.home}`,
     };
   }
   return {
@@ -241,7 +250,16 @@ export async function runDoctor(
   }
 
   for (const check of checks) {
-    line(`${check.ok ? 'ok  ' : 'FAIL'}  ${check.name.padEnd(30)}  ${check.detail}`);
+    const status = !check.ok ? 'FAIL' : check.workedAround === true ? 'warn' : 'ok  ';
+    line(`${status}  ${check.name.padEnd(30)}  ${check.detail}`);
+  }
+  const warnings = checks.filter((check) => check.ok && check.workedAround === true);
+  if (warnings.length > 0) {
+    line('');
+    line('Worked around:');
+    for (const warning of warnings) {
+      line(`  - ${warning.name}: ${warning.fix}`);
+    }
   }
   if (failures.length > 0) {
     line('');

@@ -45,12 +45,9 @@ function readIfExists(file: string): string {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 }
 
-/**
- * Detects which loaders a checkout can run, by looking for the Gradle plugin each one applies.
- * ModDevGradle / NeoGradle mean NeoForge; Loom means Fabric.
- */
-export function detectLoaders(projectDir: string): Loader[] {
-  const sources = [
+/** Every Gradle script that could say how this project is configured, as one blob to search. */
+function buildSources(projectDir: string): string {
+  return [
     readIfExists(path.join(projectDir, 'build.gradle')),
     readIfExists(path.join(projectDir, 'build.gradle.kts')),
     readIfExists(path.join(projectDir, 'settings.gradle')),
@@ -58,12 +55,20 @@ export function detectLoaders(projectDir: string): Loader[] {
       readIfExists(path.join(projectDir, module, 'build.gradle')),
       readIfExists(path.join(projectDir, module, 'build.gradle.kts')),
     ]),
-    ...fs.existsSync(path.join(projectDir, 'buildSrc/src/main/groovy'))
+    ...(fs.existsSync(path.join(projectDir, 'buildSrc/src/main/groovy'))
       ? fs
           .readdirSync(path.join(projectDir, 'buildSrc/src/main/groovy'))
           .map((entry) => readIfExists(path.join(projectDir, 'buildSrc/src/main/groovy', entry)))
-      : [],
+      : []),
   ].join('\n');
+}
+
+/**
+ * Detects which loaders a checkout can run, by looking for the Gradle plugin each one applies.
+ * ModDevGradle / NeoGradle mean NeoForge; Loom means Fabric.
+ */
+export function detectLoaders(projectDir: string): Loader[] {
+  const sources = buildSources(projectDir);
 
   const loaders: Loader[] = [];
   if (/fabric-loom/.test(sources) || fs.existsSync(path.join(projectDir, 'loader-fabric'))) {
@@ -86,9 +91,9 @@ export function detectGradleTask(projectDir: string, loader: Loader): { task: st
   const moduleName = `loader-${loader}`;
   if (fs.existsSync(path.join(projectDir, moduleName))) {
     const moduleDir = path.join(projectDir, moduleName);
-    return { task: `:${moduleName}:runClient`, runDir: detectRunDir(moduleDir) };
+    return { task: `:${moduleName}:runClient`, runDir: detectRunDir(moduleDir, projectDir, loader) };
   }
-  return { task: 'runClient', runDir: detectRunDir(projectDir) };
+  return { task: 'runClient', runDir: detectRunDir(projectDir, projectDir, loader) };
 }
 
 /**
@@ -110,7 +115,7 @@ const RUN_DIR_EVIDENCE = ['logs', 'saves', 'crash-reports', 'usercache.json'];
  * order otherwise. `start` corrects a wrong guess against the game directory the client reports
  * once it is up.
  */
-export function detectRunDir(baseDir: string): string {
+export function detectRunDir(baseDir: string, projectDir = baseDir, loader?: Loader): string {
   const candidates = [path.join(baseDir, 'runs', 'client'), path.join(baseDir, 'run')];
   let best: { dir: string; usedAt: number } | null = null;
   for (const candidate of candidates) {
@@ -127,7 +132,39 @@ export function detectRunDir(baseDir: string): string {
       }
     }
   }
-  return best?.dir ?? candidates[0]!;
+  if (best !== null) {
+    return best.dir;
+  }
+  // Nothing has run yet, so ask the build what it is going to do. Getting this right on a cold
+  // checkout is what keeps the very first launch deterministic -- and keeps `start` from opening
+  // with a correction notice about a directory the caller never mentioned.
+  const declared = declaredRunDir(buildSources(projectDir), loader);
+  return declared === null ? candidates[0]! : path.join(baseDir, ...declared.split('/'));
+}
+
+/**
+ * The run directory the build declares, as a path relative to the module.
+ *
+ * Loom's multiloader convention states it outright. The NeoForge plugins do not, and the two
+ * generations disagree: NeoGradle runs in `runs/<name>`, ModDevGradle 2 -- which the Minecraft 26
+ * line builds on -- in `run`.
+ *
+ * @return the declared directory, or null when the build says nothing useful
+ */
+function declaredRunDir(sources: string, loader?: Loader): string | null {
+  if (loader === 'fabric') {
+    const explicit = /\brunDir\s*[( ]\s*['"]([^'"]+)['"]/.exec(sources);
+    return explicit === null ? null : explicit[1]!;
+  }
+  if (loader === 'neoforge') {
+    if (/net\.neoforged\.moddev/.test(sources)) {
+      return 'run';
+    }
+    if (/net\.neoforged\.gradle/.test(sources)) {
+      return 'runs/client';
+    }
+  }
+  return null;
 }
 
 /** Minecraft 1.21 needs Java 21 and Minecraft 26 needs 25; the project states which. */

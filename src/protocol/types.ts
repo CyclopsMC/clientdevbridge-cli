@@ -9,6 +9,8 @@ export const helloSchema = z.object({
   loader: z.string(),
   clientDevBridgeVersion: z.string(),
   evalEnabled: z.boolean().optional(),
+  /** The project this client was launched for; absent on an older bridge build. */
+  projectDir: z.string().nullish(),
   mods: z.array(z.string()).default([]),
 });
 

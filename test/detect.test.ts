@@ -83,6 +83,37 @@ describe('detectRunDir', () => {
     expect(detectRunDir(directory)).toBe(path.join(directory, 'runs', 'client'));
   });
 
+  it('believes ModDevGradle over the convention on a cold checkout', () => {
+    // Nothing has run yet, so the only evidence is the build itself. ModDevGradle 2 -- what the
+    // Minecraft 26 line builds on -- runs the client in `run`, not `runs/client`.
+    write('loader-neoforge/build.gradle', "plugins { id 'net.neoforged.moddev' }");
+    expect(detectRunDir(path.join(directory, 'loader-neoforge'), directory, 'neoforge')).toBe(
+      path.join(directory, 'loader-neoforge', 'run'),
+    );
+  });
+
+  it('believes NeoGradle over the convention on a cold checkout', () => {
+    write('loader-neoforge/build.gradle', "plugins { id 'net.neoforged.gradle.userdev' }");
+    expect(detectRunDir(path.join(directory, 'loader-neoforge'), directory, 'neoforge')).toBe(
+      path.join(directory, 'loader-neoforge', 'runs', 'client'),
+    );
+  });
+
+  it("takes Loom's declared runDir on a cold checkout", () => {
+    write('loader-fabric/build.gradle', "loom { runs { client { runDir('game') } } }");
+    expect(detectRunDir(path.join(directory, 'loader-fabric'), directory, 'fabric')).toBe(
+      path.join(directory, 'loader-fabric', 'game'),
+    );
+  });
+
+  it('prefers what actually ran over what the build declares', () => {
+    write('loader-neoforge/build.gradle', "plugins { id 'net.neoforged.moddev' }");
+    write('loader-neoforge/runs/client/logs/latest.log', '');
+    expect(detectRunDir(path.join(directory, 'loader-neoforge'), directory, 'neoforge')).toBe(
+      path.join(directory, 'loader-neoforge', 'runs', 'client'),
+    );
+  });
+
   it('picks the most recently used one when a checkout has both', () => {
     write('runs/client/logs/latest.log', '');
     write('run/logs/latest.log', '');
