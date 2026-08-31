@@ -1,6 +1,31 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Fixed
+* **A timed-out `wait --expr` now says what the expression did** — how many times it ran, what it
+  last answered, and that it was well-formed, since an expression that throws or answers a
+  non-boolean fails immediately instead. It used to print the screen and the world state, which
+  describe nothing an expression asked about, so a false expression, a throwing one and an unbound
+  name were indistinguishable. Comparing `dev.prop` against a quoted string — false forever, because
+  `dev.prop` answers the property's own typed value — is now named as the likely cause.
+* The "matches N widgets" error suggested `--widget`, which `set-text` does not have; it takes the
+  widget positionally. The hint no longer names a flag.
+
+### Documentation
+* The README says the `eval` language is **Groovy**. It never did, and its examples are valid in
+  both Groovy and JavaScript, so nothing disambiguated them.
+* Every `dev.*` helper's return type is documented, with the `dev.prop` comparison trap spelled out.
+* The `set-text` examples are real output from a real screen. The old one used a label from the
+  Integrated Dynamics aspect-settings screen that cannot resolve — the phrase is that window's
+  title, and the box has no label — which sent readers hunting a bug that was not there. The
+  mod-drawn case now points at the pixel fallback where it is described.
+* `start` writing to the project's `.gitignore`, and `--no-gitignore`, are documented under Session
+  state. The flag shipped in 0.3.0 and was mentioned nowhere.
+* A warning that piping hides the exit code the README leans on as its contract.
+
 <a name="v0.3.0"></a>
 ## [v0.3.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.2.0...v0.3.0) - 2026-08-31
 

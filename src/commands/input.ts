@@ -475,6 +475,25 @@ export async function runWaitFor(
       if (!global.quiet) {
         line(`Condition met (screen: ${result['screenClass'] ?? 'none'}, in world: ${result['inWorld']}).`);
       }
+    } else if (result['condition'] === 'expr') {
+      // The screen and the world say nothing about an expression, and printing them here was the
+      // whole problem: a false expression, a throwing one and an unbound name all read the same.
+      // Throwing and non-boolean expressions fail the request outright, so reaching a timeout is
+      // itself the diagnosis -- it evaluated cleanly every time and was false every time.
+      line(
+        `Timed out after ${timeoutMs} ms: \`${result['expression']}\` was evaluated ` +
+          `${result['evaluations']} times and answered ` +
+          `${JSON.stringify(result['lastValue'])} every time.`,
+      );
+      line(
+        'It is well-formed -- an expression that throws, or that answers something other than a ' +
+          'boolean, fails immediately rather than timing out -- so the operands are what to check. ' +
+          'Read one directly with `eval`.',
+      );
+      if (typeof result['hint'] === 'string') {
+        line(result['hint']);
+      }
+      process.exitCode = 1;
     } else {
       line(
         `Timed out after ${timeoutMs} ms waiting for ${result['condition']}` +

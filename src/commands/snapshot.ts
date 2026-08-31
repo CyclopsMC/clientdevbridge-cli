@@ -141,7 +141,10 @@ export async function findWidget(client: BridgeClient, query: string): Promise<S
     throw new CliError(
       `'${query}' matches ${matches.length} widgets:\n${listed}`,
       1,
-      'Pass the exact path instead, e.g. --widget /root/children[3]',
+      // No flag named here: `click` and `tooltip` take --widget, but `set-text` takes the widget
+      // positionally, and naming the flag sent a caller looking for an option that command has not
+      // got.
+      'Pass the exact path instead of the label, e.g. /root/children[3]',
     );
   }
 

@@ -180,12 +180,39 @@ HotSpot's redefinition rules to keep going.
 Booting is a minute or two and it throws away the world you built, so prefer `hotswap` to
 `restart`: keep one client alive for a whole session.
 
-`eval` is an escape hatch for what no command covers, with `mc`, `player`, `level`, `screen`,
-`server` and `dev` bound. `dev` builds and reads the game objects a script cannot name for itself —
-`dev.pos(0, 4, 2)`, `dev.blockEntity(...)`, `dev.nbt(...)`, `dev.item("minecraft:stone")`,
-`dev.prop(0, 4, 2, "lit")` — because the game is loaded by a transforming class loader and the
-script engine is not. It is opt-in and
+`eval` is an escape hatch for what no command covers. **The language is Groovy**, so a Java
+expression is usually the safe guess and a JavaScript one usually is not: `typeof x` and
+`String(x)` are not Groovy, and the errors they produce name Groovy internals rather than saying
+so. `mc`, `player`, `level`, `screen`, `server` and `dev` are bound. It is opt-in and
 localhost-only, like the whole bridge.
+
+`dev` builds and reads the game objects a script cannot name for itself — because the game is
+loaded by a transforming class loader and the script engine is not. **What each one answers:**
+
+| Call | Returns |
+| --- | --- |
+| `dev.pos(0, 4, 2)` | a `BlockPos` |
+| `dev.vec(0.5, 4.0, 2.5)` | a `Vec3` |
+| `dev.block(0, 4, 2)` | a `BlockState` |
+| `dev.blockId(0, 4, 2)` | a `String`, the registry id |
+| `dev.prop(0, 4, 2, "lit")` | the property's **own type** — `Boolean` for `lit`, `Integer` for `power`, a `String` only where the property really is textual |
+| `dev.props(0, 4, 2)` | a `Map` of every property name to its typed value |
+| `dev.blockEntity(0, 4, 2)` | the `BlockEntity`, or null |
+| `dev.nbt(0, 4, 2)` | a `String`: that block entity's synced NBT |
+| `dev.item("minecraft:stone")`, `dev.item(id, count)` | an `ItemStack` |
+| `dev.blocks(ns)`, `dev.items(ns)`, `dev.namespaces()` | a `List<String>` |
+
+The type matters most for `dev.prop`, because comparing a `Boolean` against a quoted string is
+false forever and a `wait --expr` on it can only time out. Write `dev.prop(0, 4, 2, "lit") == true`,
+not `== 'true'`. `eval` shows you which you have — a `String` comes back quoted, a `Boolean` does
+not:
+
+```console
+$ clientdevbridge eval "dev.prop(0,4,2,'lit')"
+false
+$ clientdevbridge eval "'false'"
+"false"
+```
 
 ### It runs a whole script over one connection
 
@@ -199,9 +226,9 @@ and wrong for the fifty a script issues in a row, where connecting costs more th
 nothing about any command changes:
 
 ```
-setblock 0 4 2 minecraft:redstone_lamp
-open-gui 0 4 2 --face north
-set-text "Pulse length" 77 --commit enter
+setblock 0 4 2 minecraft:anvil
+open-gui 0 4 2
+set-text "/root/children[0]" "Excalibur" --commit enter
 close-screen
 ```
 
@@ -270,14 +297,34 @@ takes `pickup`, `swap`, `clone`, `throw`, `quick_craft` and `pickup_all`.
 
 ### It edits a text field in one command
 
-```bash
-clientdevbridge set-text "Pulse length" 77 --commit enter
+```console
+$ clientdevbridge set-text "/root/children[0]" "Excalibur"
+/root/children[0]: 'Diamond Sword' -> 'Excalibur'
 ```
 
 The manual version is click, press BACKSPACE as many times as the old value is long, type, then
 trigger whatever commits it. The snapshot already knows the field's current value, so the count is
 exact; the value is read back afterwards and reported, so a field that rejected a character says so
-rather than surfacing three commands later.
+rather than surfacing three commands later — an anvil with nothing in it ignores its name box, and
+you hear about that immediately rather than three commands later.
+
+The widget is a `/root/children[N]` path from `snapshot`, or a label. **Prefer the path.** A label
+has to be unique, and on an anvil "Repair & Name" is both the screen's title and the box's, so it
+matches two things:
+
+```console
+$ clientdevbridge set-text "Repair & Name" "Excalibur"
+error: 'Repair & Name' matches 2 widgets:
+  AnvilScreen "Repair & Name"  /root
+  EditBox "Repair & Name"  /root/children[0]
+Pass the exact path instead of the label, e.g. /root/children[3]
+```
+
+**A field a mod paints itself is not a widget at all**, so it has no path and no label, and
+`snapshot` cannot show you what was never there — Integrated Dynamics' aspect-settings boxes are
+like this. Those need `click --at x,y` with coordinates read off a `screenshot`, then `type`;
+see [It reads a GUI structurally](#it-reads-a-gui-structurally-not-just-visually) for converting
+between pixel and GUI space.
 
 ### It can aim at one side of a block
 
@@ -317,6 +364,15 @@ These exist so an agent reading stdout can act on it without guessing:
 - Default output is readable text. `--json` prints the raw protocol result instead.
 - Exit codes: `0` success, `1` a protocol-level failure (bad arguments, a method that refused),
   `2` a session or connection failure (nothing running, port taken, client gone).
+- **A pipe hides that exit code.** `clientdevbridge ... | head` reports `head`'s status, not the
+  CLI's, so a failed command reads as a successful one — and piping into `head`, `tail` or `grep` is
+  the natural thing to do with output this size. Check `${PIPESTATUS[0]}` in bash, or capture first
+  and filter afterwards:
+
+  ```bash
+  out="$(clientdevbridge snapshot)" || exit 1
+  grep EditBox <<<"$out"
+  ```
 
 ## Session state
 
@@ -333,6 +389,11 @@ init.gradle      regenerated on every start
 `start` detaches the client into its own process group, so it outlives the CLI invocation that
 created it; `stop` kills the whole group. Every command detects a stale `session.json` — a
 reclaimed cloud VM, a crash, a reboot — and says "not running" cleanly instead of hanging.
+
+**`start` also appends three lines to your project's `.gitignore`**, so the session state above does
+not get committed while `golden/` still can. It says so when it does it, and it is the only file
+outside `.clientdevbridge/` this tool ever writes. `start --no-gitignore` skips it, for a checkout
+that has to stay pristine — a CI run, or a repository you only borrowed.
 
 ## Headless
 
