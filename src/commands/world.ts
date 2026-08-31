@@ -334,6 +334,51 @@ export async function runLook(
   });
 }
 
+/**
+ * Lists what the loaded mods have registered.
+ *
+ * The lists are long — one mod in the survey had 53 blocks and 90 items — so this prints names and
+ * nothing else, and `--limit` caps it rather than letting a stray call dump the whole registry into
+ * a caller's context. `--filter` is the usual way to narrow it further.
+ */
+export async function runRegistry(
+  global: GlobalOptions,
+  kind: string,
+  namespace: string | undefined,
+  options: { filter?: string | undefined; limit: string },
+): Promise<void> {
+  const wanted = kind.toLowerCase();
+  if (!['blocks', 'items', 'namespaces'].includes(wanted)) {
+    throw new CliError(`'${kind}' is not a registry.`, 2, 'Use blocks, items or namespaces.');
+  }
+  const call = wanted === 'namespaces'
+    ? 'dev.namespaces()'
+    : `dev.${wanted}(${namespace === undefined ? '' : JSON.stringify(namespace)})`;
+
+  await withClient(global, async ({ client }) => {
+    const result = await client.call<{ value: unknown }>('eval', { language: 'groovy', code: call });
+    const all = (Array.isArray(result.value) ? result.value : []).map((entry) =>
+      typeof entry === 'string' ? entry : String((entry as { toString?: string })?.toString ?? entry),
+    );
+    const matched = options.filter === undefined
+      ? all
+      : all.filter((name) => name.includes(options.filter as string));
+    const limit = Number(options.limit);
+    const shown = matched.slice(0, limit);
+
+    if (global.json) {
+      printJson({ kind: wanted, namespace: namespace ?? null, total: matched.length, names: shown });
+      return;
+    }
+    for (const name of shown) {
+      line(name);
+    }
+    if (matched.length > shown.length && !global.quiet) {
+      line(`# ${matched.length} matched; showing ${shown.length}. Narrow with --filter or raise --limit.`);
+    }
+  });
+}
+
 export async function runInventory(
   global: GlobalOptions,
   options: { includeEmpty: boolean } = { includeEmpty: false },

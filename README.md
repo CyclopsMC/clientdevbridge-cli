@@ -203,6 +203,23 @@ It stops at the first failure and says which line, because in a script that buil
 twelve is meaningless if step eleven did not happen. `--continue-on-error` runs the rest anyway,
 and `--json` prints one result object per command.
 
+### It tells you what a mod registered
+
+```console
+$ clientdevbridge registry namespaces
+evilcraft
+integrateddynamics
+minecraft
+$ clientdevbridge registry blocks colossalchests --limit 3
+colossalchests:chest_wall_copper
+colossalchests:chest_wall_diamond
+colossalchests:chest_wall_gold
+# 25 matched; showing 3. Narrow with --filter or raise --limit.
+```
+
+`namespaces` is also the quickest way to tell a mod genuinely loaded rather than merely being on
+the classpath: one that failed to initialise registers nothing.
+
 ### It can mine
 
 ```console

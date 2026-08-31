@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+* `registry <blocks|items|namespaces> [namespace]`, listing what the loaded mods registered. The
+  first question about an unfamiliar mod, and it previously needed unzipping the jar. `--filter` and
+  `--limit` keep the answer small — one mod alone has 53 blocks and 90 items.
 * `break <x> <y> <z>`, which mines a block the way a player does — holding attack until it gives
   way — and reports how many ticks it took and what dropped, with each drop's position, since a drop
   is thrown rather than placed and lands a block or two away.

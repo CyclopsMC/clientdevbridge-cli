@@ -14,6 +14,7 @@ import {
   runGive,
   runInventory,
   runLook,
+  runRegistry,
   runSetblock,
   runUse,
   runTeleport,
@@ -353,6 +354,13 @@ program
   .option('--yaw <degrees>', 'set yaw')
   .option('--pitch <degrees>', 'set pitch')
   .action(async (options) => runLook(globals(), options));
+
+program
+  .command('registry <kind> [namespace]')
+  .description('list what the loaded mods registered: blocks, items or namespaces')
+  .option('--filter <text>', 'only names containing this')
+  .option('--limit <n>', 'stop after this many names', '100')
+  .action(async (kind, namespace, options) => runRegistry(globals(), kind, namespace, options));
 
 program
   .command('inventory')
