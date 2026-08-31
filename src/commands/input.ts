@@ -386,8 +386,13 @@ export async function runCloseScreen(global: GlobalOptions): Promise<void> {
       printJson(result);
       return;
     }
-    if (!global.quiet) {
-      line('Closed the screen.');
+    const now = result['screenClass'];
+    if (now !== null && now !== undefined) {
+      // Not always the world: a mod screen's onClose can put its parent back up, and one close is
+      // then not enough to get back to the world.
+      line(`Closed it, and ${String(now)} is now in focus.`);
+    } else if (!global.quiet) {
+      line('Closed the screen. Nothing is in focus now, so the world has input.');
     }
   });
 }

@@ -30,6 +30,7 @@ export interface StartCommandOptions {
   readonly height: string;
   readonly eval: boolean;
   readonly pinOptions: boolean;
+  readonly gitignore: boolean;
   readonly jdwpPort?: string | undefined;
 }
 
@@ -48,6 +49,7 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     height: Number(options.height),
     evalEnabled: options.eval,
     pinOptions: options.pinOptions,
+    gitignore: options.gitignore,
     jdwpPort: options.jdwpPort === undefined ? null : Number(options.jdwpPort),
     onProgress: global.quiet ? undefined : (message) => line(message),
   });

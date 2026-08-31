@@ -21,6 +21,7 @@ import {
   runWorldLeave,
   runWorldList,
   runWorldLoad,
+  runHold,
   runWalkTo,
   runWorldReset,
 } from './commands/world.js';
@@ -89,6 +90,7 @@ program
   .option('--gradle-args <args>', 'extra arguments to pass to Gradle, space separated')
   .option('--no-eval', 'do not enable the eval escape hatch')
   .option('--no-pin-options', 'do not pin the determinism settings in options.txt')
+  .option('--no-gitignore', "do not add .clientdevbridge/ to the project's .gitignore")
   .action(async (options) => runStart(globals(), options));
 
 program
@@ -311,7 +313,8 @@ program
 program
   .command('block <x> <y> <z>')
   .description('describe the block at a position')
-  .option('--nbt', 'include the block entity NBT the client knows about', false)
+  .option('--nbt', 'include the block entity NBT the client knows about (the default under --json)')
+  .option('--no-nbt', 'leave the NBT out even under --json')
   .action(async (x, y, z, options) => runBlock(globals(), x, y, z, options));
 
 program
@@ -329,6 +332,11 @@ program
   .option('--within <blocks>', 'how close counts as arrived', '0.6')
   .option('--timeout-ticks <n>', 'give up after this many ticks (default 300)')
   .action(async (x, z, options) => runWalkTo(globals(), x, z, options));
+
+program
+  .command('hold <slot>')
+  .description('select a hotbar slot 0-8, so the next place, use or break acts with that item')
+  .action(async (slot) => runHold(globals(), slot));
 
 program
   .command('setblock <x> <y> <z> <block>')

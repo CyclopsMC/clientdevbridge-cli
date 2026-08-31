@@ -62,8 +62,10 @@ describe('detectGradleTask', () => {
     expect(detectGradleTask(directory, 'neoforge').task).toBe(':loader-neoforge:runClient');
   });
 
-  it('falls back to a plain runClient for a single-module mod', () => {
-    expect(detectGradleTask(directory, 'fabric').task).toBe('runClient');
+  // Qualified, not bare: the init script takes the project path off the task to know which module
+  // to inject the mod into, and a bare `runClient` gives it nothing to take off.
+  it('falls back to the root runClient for a single-module mod', () => {
+    expect(detectGradleTask(directory, 'fabric').task).toBe(':runClient');
   });
 });
 

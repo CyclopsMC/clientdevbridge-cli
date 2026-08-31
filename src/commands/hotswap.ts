@@ -35,6 +35,9 @@ function relaunchOptions(session: Session): StartCommandOptions {
     clientdevbridgeVersion: session.bridgeVersion,
     world: session.world ?? undefined,
     headed: session.headed,
+    // The entry was written, or refused, when the client first started; either way the answer for
+    // a relaunch of that same client is that there is nothing left to write.
+    gitignore: false,
     port: String(session.port),
     timeout: String(Math.round((launch?.timeoutMs ?? 300_000) / 1000)),
     gradleArgs: launch === undefined || launch.gradleArgs.length === 0 ? undefined : launch.gradleArgs.join(' '),

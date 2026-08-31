@@ -4,7 +4,35 @@ All notable changes to this project will be documented in this file.
 <a name="Unreleased"></a>
 ## Unreleased
 
+### Added
+* `hold <slot>` selects a hotbar slot. Everything that places, uses or mines acts on the selected
+  slot, and `give` fills the first free one — so the second item given was already unreachable, and
+  holding a specific item meant hoping slot 0 was empty. `key HOTBAR_1`…`HOTBAR_9` reach the same
+  bindings by name; a bare `key 1` cannot, because a digit parses as a raw key code first.
+* `start --no-gitignore`, for a checkout that must stay pristine. The entry is still written by
+  default, since a committed session directory is the more common harm.
+* `screenshot --region` echoes the rectangle it captured, in GUI space and in pixels. A GUI-space
+  region comes back as a pixel-sized image, so the size alone could not distinguish a crop that
+  landed on the widget from one that missed it by a GUI scale factor.
+* `block --json` includes the block entity NBT the README already promised it did. `--no-nbt` opts
+  back out; the plain text form stays terse.
+
 ### Fixed
+* `use` reports a block entity NBT change. A wrench turning a side, a variable card being written, a
+  tank filling — none of those touch the block id or the block state, so the whole class of
+  interactions that actually matter used to read as "no visible change to the block, the hand or the
+  screen".
+* `doctor` resolves dependencies against the module carrying the client task rather than the root. A
+  multiloader root is an empty aggregator with no `compileClasspath`, so the new check failed on
+  every Cyclops mod — a false alarm on exactly the layout this tool is built for. A project that
+  genuinely declares no compile classpath is now reported as nothing to resolve, not as a failure.
+* `teleport` no longer reports a normal landing as "the player fell or was pushed on the way". A
+  target that is not already resting on a surface is settled onto one, which is the command working;
+  crying wolf on that buried the case that matters, so a horizontal displacement — the target was
+  inside something — is now said separately from a vertical settle.
+* `close-screen` says which screen is in focus afterwards. A mod screen's `onClose` can put its
+  parent back up, and reading back "closed" there sends a caller looking for a bug in the click they
+  just made.
 * **The bridge now works on single-module mod projects.** `detectGradleTask` answered a bare
   `runClient`, the launcher stripped the task with a pattern needing a leading colon, and the
   injection target became the literal string `runClient` — a path no Gradle project has, so the init

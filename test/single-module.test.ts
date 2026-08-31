@@ -95,3 +95,20 @@ describe('the init script for a single-module project', () => {
     expect(script).not.toContain("clientDevBridgeTarget = 'runClient'");
   });
 });
+
+/**
+ * The Gradle path `doctor` resolves dependencies against.
+ *
+ * Resolving at the root was a false alarm on every multiloader mod: the root of a Cyclops layout is
+ * an empty aggregator with no `compileClasspath` at all, so `doctor` reported a project that builds
+ * perfectly well as broken. The module carrying the client task is the one that has the classpath.
+ */
+describe('the project doctor resolves dependencies against', () => {
+  it('is the module the client task lives in', () => {
+    expect(projectPathOf(':loader-neoforge:runClient')).toBe(':loader-neoforge');
+  });
+
+  it('is the root when there is only one module', () => {
+    expect(projectPathOf(':runClient')).toBe(':');
+  });
+});

@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
 import { ARTIFACT_LINES, artifactId, findLine, GROUP } from '../artifacts.js';
-import { declaredJavaVersion, detectLoaders, detectProject, readGradleProperties } from '../detect.js';
+import { declaredJavaVersion, detectLoaders, detectProject, projectPathOf, readGradleProperties } from '../detect.js';
 import { findJavaHome, gradleJava } from '../java.js';
 import { line, printJson } from '../output.js';
 import { commandExists } from '../xvfb.js';
@@ -175,7 +175,10 @@ export async function collectChecks(
       });
 
       if (options.dependencies) {
-        checks.push(resolveDependencies(projectDir, wrapper,
+        // Against the module that actually gets launched, not the root. A multiloader root is an
+        // empty aggregator with no compileClasspath at all, so resolving there failed on every
+        // Cyclops mod -- a false alarm on exactly the layout this tool is built for.
+        checks.push(resolveDependencies(projectDir, wrapper, projectPathOf(project.gradleTask),
           findJavaHome(declaredJavaVersion(readGradleProperties(projectDir)))?.home ?? null));
       }
 
@@ -256,10 +259,16 @@ export async function collectChecks(
  * Twenty seconds of Gradle here is worth six minutes of Gradle there. It is opt-out rather than
  * opt-in because the caller who most needs it is the one who does not know to ask.
  */
-function resolveDependencies(projectDir: string, wrapper: string, javaHome: string | null): Check {
+function resolveDependencies(
+  projectDir: string,
+  wrapper: string,
+  gradlePath: string,
+  javaHome: string | null,
+): Check {
+  const task = gradlePath === ':' ? ':dependencies' : `${gradlePath}:dependencies`;
   const result = spawnSync(
     wrapper,
-    ['--quiet', '--console=plain', 'dependencies', '--configuration', 'compileClasspath'],
+    ['--quiet', '--console=plain', task, '--configuration', 'compileClasspath'],
     {
       cwd: projectDir,
       encoding: 'utf8',
@@ -281,6 +290,17 @@ function resolveDependencies(projectDir: string, wrapper: string, javaHome: stri
     return { name: 'dependencies', ok: true, detail: 'the project resolves its compile classpath', fix: '' };
   }
 
+  // A project with no compile classpath has nothing to resolve, which is an answer and not a
+  // failure: some layouts put every dependency on a configuration of their own.
+  if (output.includes("configuration 'compileClasspath' not found")) {
+    return {
+      name: 'dependencies',
+      ok: true,
+      detail: `${task === ':dependencies' ? 'the project' : gradlePath} declares no compile classpath, so there was nothing to resolve`,
+      fix: '',
+    };
+  }
+
   // The message Gradle gives for GitHub Packages without usable credentials names neither the
   // repository nor the credential, so it is worth translating once rather than by every caller.
   const credentials = output.includes('Username must not be null')
@@ -296,7 +316,7 @@ function resolveDependencies(projectDir: string, wrapper: string, javaHome: stri
         + 'packages set GITHUB_USER and a GITHUB_TOKEN with read:packages, or build the missing '
         + 'dependencies from source with `./gradlew publishToMavenLocal` in their repositories. '
         + 'See docs/cloud-setup.md in the mod repository.'
-      : 'Run `./gradlew dependencies --configuration compileClasspath` to see the whole failure.',
+      : `Run \`./gradlew ${task} --configuration compileClasspath\` to see the whole failure.`,
   };
 }
 

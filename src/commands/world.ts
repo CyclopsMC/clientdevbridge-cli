@@ -121,11 +121,15 @@ export async function runBlock(
   x: string,
   y: string,
   z: string,
-  options: { nbt: boolean },
+  options: { nbt?: boolean | undefined },
 ): Promise<void> {
   await withClient(global, async ({ client }) => {
     const position = parsePosition(x, y, z);
-    const result = await client.call<Record<string, unknown>>('world.block', { ...position, nbt: options.nbt });
+    // Asking for one block is already a targeted question, and the answer a mod block is asked for
+    // is almost always in its NBT, so --json carries it unless --no-nbt says otherwise. The plain
+    // text form stays terse, because there it is a wall of NBT under a one-line answer.
+    const nbt = options.nbt ?? global.json;
+    const result = await client.call<Record<string, unknown>>('world.block', { ...position, nbt });
     if (global.json) {
       printJson(result);
       return;
@@ -217,6 +221,36 @@ export async function runBreak(
 }
 
 /**
+ * Selects a hotbar slot, which is what "hold this" means to the game.
+ *
+ * Everything that places, uses or mines acts on the selected slot, so without this the only way to
+ * hold an item was to give it while slot 0 happened to be empty. `give` fills the first free slot,
+ * so the second item given was already unreachable. The client sends the selection to the server
+ * lazily, right before the next interaction, so setting it directly is enough.
+ */
+export async function runHold(global: GlobalOptions, slot: string): Promise<void> {
+  const index = Number.parseInt(slot, 10);
+  if (!Number.isInteger(index) || index < 0 || index > 8) {
+    throw new CliError(`Hotbar slot must be 0-8, but was '${slot}'.`, 1);
+  }
+  await withClient(global, async ({ client }) => {
+    const result = await client.call<{ selected: number; item: string | null; count: number }>(
+      'player.hotbar',
+      { slot: index },
+    );
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    line(
+      result.item === null
+        ? `holding slot ${result.selected}, which is empty`
+        : `holding slot ${result.selected}: ${result.item} x${result.count}`,
+    );
+  });
+}
+
+/**
  * Walks to a position instead of teleporting to it, for when the movement is the point.
  *
  * The manual version is resetting the pitch — walking forward while looking down walks into the
@@ -281,10 +315,22 @@ export async function runTeleport(
       const requested = result['requested'] as number[] | undefined;
       const at = pos.map((value) => value.toFixed(2)).join(', ');
       line(`Player at ${at}, facing ${result['yaw']}/${result['pitch']}.`);
-      // Gravity acts between the teleport and the reply, so the reported y can be lower than the
-      // one asked for. Saying so is the difference between a confusing number and an expected one.
-      if (requested !== undefined && requested.some((value, index) => Math.abs(value - (pos[index] ?? 0)) > 0.01)) {
-        line(`(asked for ${requested.map((value) => value.toFixed(2)).join(', ')}; the player fell or was pushed on the way)`);
+      // Gravity acts between the teleport and the reply, so the reported y is routinely lower than
+      // the one asked for: a target that is not already resting on a surface is settled onto one,
+      // and that is the command working. Reporting every such landing as "fell or was pushed" cried
+      // wolf on the normal case and buried the one that matters, so the two are separated here. A
+      // horizontal difference is the surprising one -- it means the target was inside something.
+      if (requested !== undefined) {
+        const drift = requested.map((value, index) => value - (pos[index] ?? 0));
+        const blocked = Math.abs(drift[0] ?? 0) > 0.5 || Math.abs(drift[2] ?? 0) > 0.5;
+        if (blocked) {
+          line(
+            `(asked for ${requested.map((value) => value.toFixed(2)).join(', ')}; the player did not get there -- ` +
+              'something is in the way, or the target is inside a block)',
+          );
+        } else if (Math.abs(drift[1] ?? 0) > 0.1) {
+          line(`(asked for y ${(requested[1] ?? 0).toFixed(2)}; settled onto the ground at ${(pos[1] ?? 0).toFixed(2)})`);
+        }
       }
       // The position above is a snapshot of something still moving, so anything measured from it --
       // a screenshot most of all -- is of somewhere else by the time it is taken.
@@ -453,6 +499,15 @@ export async function runUse(
     }
     if (result['heldBefore'] !== result['heldAfter']) {
       changes.push(`held ${result['heldBefore']} -> ${result['heldAfter']}`);
+    }
+    // The one that catches a machine being configured: a wrench, a card being written, a tank
+    // filling. None of those touch the block id or the state, and all of them are in the NBT, so
+    // without this the whole class of interactions that actually matter read as "no visible
+    // change". The NBT itself is not printed -- it is long, and `block --nbt` asks for it.
+    if (result['blockEntityBefore'] !== result['blockEntityAfter']) {
+      changes.push(result['blockEntityBefore'] === '' || result['blockEntityAfter'] === ''
+        ? `block entity ${result['blockEntityAfter'] === '' ? 'gone' : 'appeared'}`
+        : 'block entity NBT changed (read it with `block --nbt`)');
     }
     if (result['screenOpened'] === true) {
       changes.push(`screen ${result['screenClass']}`);

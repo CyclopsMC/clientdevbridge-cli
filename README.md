@@ -127,12 +127,18 @@ clientdevbridge click --at 205,121              # or --widget by text or path
 clientdevbridge type "hello"                    # into the focused widget
 clientdevbridge key ESCAPE                      # or 'E', or 'GLFW_KEY_F3'
 clientdevbridge hold-key W --ticks 20           # movement, held through the real key binding
+clientdevbridge hold 2                          # select hotbar slot 2, so `use` acts with it
 clientdevbridge drag --from 133,179 --to 205,121
 clientdevbridge scroll --at 200,120 --dy -3
 ```
 
 Input goes through the game's own handlers, so a mod's click logic runs exactly as it would for a
 player. Off-screen coordinates are refused rather than silently doing nothing.
+
+`--widget` only reaches what the game models as a widget. Vanilla buttons, text boxes and slots are
+widgets; a field a mod draws itself in `render` is not, and `snapshot` cannot show you what was
+never there. Those need `--at x,y` with coordinates read off a screenshot, against the GUI-space
+origin the container reports — see [It reads a GUI structurally](#it-reads-a-gui-structurally-not-just-visually).
 
 ### It sets up the world for you
 
@@ -295,8 +301,8 @@ part, using a tool, wrenching with `--sneak`. `open-gui` is `use` plus a wait fo
 Output is sized for the thing reading it. `--json` is compact unless stdout is a terminal, and omits
 the empty slots of a container or inventory — a chest screen with one item in it costs 792 bytes as
 JSON where it used to cost 9,813. `slotCount` comes with it and the slots are a regular grid, so the
-missing geometry is derivable; `--include-empty` restores every rectangle. **Read slots by their
-`index` field rather than by position in the array.**
+missing geometry is derivable; `snapshot --include-empty` and `inventory --include-empty` restore
+every rectangle. **Read slots by their `index` field rather than by position in the array.**
 
 The cheapest question is usually not the JSON one: the same screen is 225 bytes as an outline and
 792 as JSON, and a screenshot read as an image is about 546 tokens. `compare` and

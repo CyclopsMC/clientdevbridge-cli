@@ -58,6 +58,14 @@ export async function runScreenshot(global: GlobalOptions, options: ScreenshotOp
         `${result['width']}x${result['height']} px  (window ${result['pixelWidth']}x${result['pixelHeight']}, ` +
           `gui ${result['guiWidth']}x${result['guiHeight']} @ scale ${result['guiScale']})`,
       );
+      // Where the crop actually landed. A gui-space region comes back as a pixel-sized image, so
+      // the size alone cannot distinguish a region that hit the widget from one that missed it by
+      // a gui scale factor -- which is exactly the mistake --region invites.
+      const gui = result['regionGui'] as number[] | undefined;
+      const pixels = result['region'] as number[] | undefined;
+      if (gui !== undefined && pixels !== undefined) {
+        line(`cropped to gui ${gui.map((value) => Math.round(value)).join(',')} = px ${pixels.join(',')}`);
+      }
     }
     // The path goes on its own line: this is the contract an agent reads to open the image.
     printPath(file);

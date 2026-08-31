@@ -35,6 +35,7 @@ export interface StartOptions {
   readonly height: number;
   readonly evalEnabled: boolean;
   readonly pinOptions: boolean;
+  readonly gitignore: boolean;
   readonly jdwpPort: number | null;
   readonly onProgress?: (line: string) => void;
 }
@@ -260,7 +261,10 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   }
 
   ensureDirectories(paths);
-  if (ensureGitignore(paths)) {
+  // Someone else's repository is not ours to edit. The default still writes the entry, because a
+  // session directory committed by accident is the more common harm, but a checkout that must stay
+  // pristine -- a CI run, a repository the agent only borrowed -- can say no.
+  if (options.gitignore && ensureGitignore(paths)) {
     options.onProgress?.(`Added .clientdevbridge/ to ${path.join(project.projectDir, '.gitignore')}`);
   }
 
