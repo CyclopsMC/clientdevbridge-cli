@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.2.0"></a>
+## [v0.2.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.1.1...v0.2.0) - 2026-08-31
 
 ### Added
 * `registry <blocks|items|namespaces> [namespace]`, listing what the loaded mods registered. The
