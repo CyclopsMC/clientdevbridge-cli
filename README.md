@@ -1,5 +1,8 @@
 # clientdevbridge-cli
 
+[![npm version](https://img.shields.io/npm/v/cyclops-clientdevbridge-cli.svg)](https://www.npmjs.com/package/cyclops-clientdevbridge-cli)
+[![CI](https://github.com/CyclopsMC/clientdevbridge-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/CyclopsMC/clientdevbridge-cli/actions/workflows/ci.yml)
+
 Launch and drive a Minecraft **dev client** from the shell — for coding agents.
 
 Everything is a bash command, so this works identically in a local terminal, in Claude Code on the
