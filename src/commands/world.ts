@@ -197,6 +197,10 @@ export async function runBreak(
       return;
     }
     const drops = (result['drops'] as { item: string; count: number; pos: number[] }[] | undefined) ?? [];
+    // What the player already picked up. A drop becomes collectable ten ticks after it spawns,
+    // which is exactly the settle the mod waits out, so mining within arm's reach of the block
+    // routinely ends with the item in hand and nothing left on the ground to find.
+    const collected = (result['collected'] as { item: string; count: number }[] | undefined) ?? [];
     if (result['broken'] === true) {
       if (!global.quiet) {
         line(`broke ${result['blockBefore']} in ${result['ticks']} ticks`);
@@ -206,7 +210,10 @@ export async function runBreak(
           const at = drop.pos.map((value) => value.toFixed(2)).join(', ');
           line(`  dropped ${drop.item} x${drop.count} at ${at}`);
         }
-        if (drops.length === 0) {
+        for (const item of collected) {
+          line(`  picked up ${item.item} x${item.count} on the way`);
+        }
+        if (drops.length === 0 && collected.length === 0) {
           line('  nothing dropped');
         }
       }

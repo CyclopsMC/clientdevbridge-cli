@@ -30,6 +30,10 @@ All notable changes to this project will be documented in this file.
   target that is not already resting on a surface is settled onto one, which is the command working;
   crying wolf on that buried the case that matters, so a horizontal displacement — the target was
   inside something — is now said separately from a vertical settle.
+* `break` reports what the player picked up during the drop settle, not only what is still lying on
+  the ground. A drop becomes collectable ten ticks after it spawns and the settle is ten ticks, so
+  mining within arm's reach routinely ended with the item in hand and `break` saying "nothing
+  dropped".
 * `close-screen` says which screen is in focus afterwards. A mod screen's `onClose` can put its
   parent back up, and reading back "closed" there sends a caller looking for a bug in the click they
   just made.
