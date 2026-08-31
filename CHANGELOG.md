@@ -4,7 +4,32 @@ All notable changes to this project will be documented in this file.
 <a name="Unreleased"></a>
 ## Unreleased
 
+### Added
+* `entity [selector] [path]` reads an entity's NBT — `block --nbt` for things that are not blocks.
+  Abilities, attributes and capability data live on the server entity, which the client's copy does
+  not carry, so it goes through the same command source `/data get` uses. Pass a path: a player's
+  full NBT is tens of kilobytes.
+* `screenshot --mouse x,y` and `compare --mouse x,y` park the cursor before capturing. The cursor is
+  the one piece of render state `options.txt` cannot pin, and every input command moves it — a GUI
+  that points a player model at the pointer made two captures differ for reasons unrelated to what
+  was being tested.
+* Exit code `3`, "not ready yet", distinct from `2` "something failed".
+
 ### Fixed
+* **`start` no longer calls a slow first build a failure.** On a machine with no toolchain cache the
+  first boot takes 15–20 minutes; the 300 s default expired while the build was healthy and still
+  progressing, and the message ("the client did not answer", "increase `--timeout`") described a
+  death that had not happened. `start` now checks whether Gradle is alive and whether the log grew
+  during the wait; if both, it says the build is still running, names the task, points at `status`
+  and exits `3`. It also allows 25 minutes automatically when no NeoForm or Loom cache exists, which
+  costs nothing when the client comes up sooner.
+* `doctor` reports a cold cache as **warn**, not `ok`, and says what it implies: the first `start`
+  will take 15–20 minutes. It was the best predictor of that wait, filed beside things that were
+  genuinely fine.
+* `inventory --json` and `snapshot --json` serialise item components through their registered codecs,
+  the way `/data get` does. A mod's own data component rendered as `Object.toString` — a class name
+  and an identity hash — so verifying that a mod changed an item meant falling back to
+  `command "data get entity @p"` and grepping.
 * **A timed-out `wait --expr` now says what the expression did** — how many times it ran, what it
   last answered, and that it was well-formed, since an expression that throws or answers a
   non-boolean fails immediately instead. It used to print the screen and the world state, which

@@ -228,6 +228,41 @@ export async function runBreak(
 }
 
 /**
+ * Reads an entity's NBT, which is the counterpart of `block --nbt`.
+ *
+ * Abilities, attributes and any capability data live on the *server* entity; the client's copy does
+ * not have them, so this goes through the same command source `/data get` uses. Without it,
+ * verifying that a mod actually changed something about the player meant running `command "data get
+ * entity @p"` and grepping the answer.
+ *
+ * The path argument is not a nicety. A player's full NBT is tens of kilobytes, and almost every
+ * question about one is about a single branch of it.
+ */
+export async function runEntity(
+  global: GlobalOptions,
+  selector: string,
+  path: string | undefined,
+): Promise<void> {
+  await withClient(global, async ({ client }) => {
+    const params: Record<string, unknown> = { selector };
+    if (path !== undefined) {
+      params['path'] = path;
+    }
+    const result = await client.call<Record<string, unknown>>('world.entity', params);
+    if (global.json) {
+      printJson(result);
+      return;
+    }
+    if (result['success'] !== true) {
+      line(String(result['output']));
+      process.exitCode = 1;
+      return;
+    }
+    line(String(result['value']));
+  });
+}
+
+/**
  * Selects a hotbar slot, which is what "hold this" means to the game.
  *
  * Everything that places, uses or mines acts on the selected slot, so without this the only way to

@@ -5,10 +5,11 @@ import pixelmatch from 'pixelmatch';
 import { CliError } from '../errors.js';
 import { line, printJson, printPath } from '../output.js';
 import { type GlobalOptions, withClient } from './context.js';
-import { parseRegion } from './inspect.js';
+import { parsePoint, parseRegion } from './inspect.js';
 
 export interface CompareOptions {
   readonly region?: string | undefined;
+  readonly mouse?: string | undefined;
   readonly space: string;
   readonly threshold: string;
   readonly pixelThreshold: string;
@@ -50,6 +51,12 @@ export async function runCompare(global: GlobalOptions, name: string, options: C
     const rawRegion = options.region === undefined ? null : parseRegion(options.region, options.space);
     if (options.afterTicks !== undefined) {
       params['afterTicks'] = Number(options.afterTicks);
+    }
+    // Unlike --region, this one *does* reach the capture: the cursor changes what is rendered, so
+    // it has to be pinned before the frame exists rather than filtered out of it afterwards. Record
+    // the golden with the same --mouse and the pair is comparable.
+    if (options.mouse !== undefined) {
+      params['mouse'] = parsePoint(options.mouse, options.space, '--mouse');
     }
 
     const shot = await client.call<Record<string, unknown>>('screenshot', params);

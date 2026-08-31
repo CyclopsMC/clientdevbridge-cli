@@ -48,10 +48,18 @@ check that does.
 - **Output is for an agent to read.** Screenshots are written to files and their paths printed;
   base64 never goes to stdout. Every command is readable without `--json`.
 - **Exit codes are load-bearing.** A failing in-game command exits non-zero — `setblock ... &&
-  inspect-gui ...` must not proceed against a scene that was never built.
+  inspect-gui ...` must not proceed against a scene that was never built. `0` success, `1` a
+  protocol failure, `2` a session or connection failure, `3` not ready yet (a build still running).
+  **A pipe destroys this**: `$?` after `clientdevbridge ... | head` is `head`'s status, so a failed
+  command reads as a successful one. Three separate agents have now misread an exit code this way.
+  Use `${PIPESTATUS[0]}`, or capture the output first and filter it afterwards.
 - **Error messages have to say what to do next.** An agent cannot ask a follow-up question.
-- **The CLI never edits the consumer's repository.** It generates `.clientdevbridge/init.gradle`
-  and passes it to `./gradlew runClient`; anything else is a bug.
+- **The CLI writes `.clientdevbridge/` and one block in the consumer's `.gitignore`, and nothing
+  else.** The `.gitignore` block keeps session state out of commits while leaving `golden/` in, is
+  announced when written, and is skipped by `start --no-gitignore`. Any other write to a consumer's
+  repository is a bug. (This rule used to say the CLI never touches the repository at all, which
+  stopped being true when `--no-gitignore` shipped — an agent then had to explain a dirty
+  `git status` against a promise that it could not happen.)
 
 ## Releasing
 

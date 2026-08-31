@@ -14,9 +14,19 @@ export interface ScreenshotOptions {
   readonly afterTicks?: string | undefined;
   readonly scale?: string | undefined;
   readonly space?: string | undefined;
+  readonly mouse?: string | undefined;
   readonly diff?: string | undefined;
   readonly minDiff?: string | undefined;
   readonly pixelThreshold?: string | undefined;
+}
+
+export function parsePoint(raw: string, space: string, flag: string): Record<string, unknown> {
+  const parts = raw.split(',').map((part) => Number(part.trim()));
+  if (parts.length !== 2 || parts.some((value) => Number.isNaN(value))) {
+    throw new CliError(`${flag} must be two numbers 'x,y', but was '${raw}'.`, 1,
+      `For example: ${flag} 213,120`);
+  }
+  return { x: parts[0], y: parts[1], space };
 }
 
 export function parseRegion(raw: string, space: string): Record<string, unknown> {
@@ -43,6 +53,14 @@ export async function runScreenshot(global: GlobalOptions, options: ScreenshotOp
     }
     if (options.scale !== undefined) {
       params['scale'] = Number(options.scale);
+    }
+    // The cursor is part of the frame: it draws a hover highlight, and some GUIs point a player
+    // model or an item at it. Every input command moves it, so two captures taken after different
+    // clicks differ for reasons that have nothing to do with what was being tested. Pinning it here
+    // rather than with a separate `mouse-move` means a golden and the capture compared against it
+    // carry the same pin instead of relying on both having remembered.
+    if (options.mouse !== undefined) {
+      params['mouse'] = parsePoint(options.mouse, space, '--mouse');
     }
 
     const result = await client.call<Record<string, unknown>>('screenshot', params);

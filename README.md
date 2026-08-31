@@ -120,6 +120,12 @@ Determinism is not luck: `start` pins the GUI scale, disables clouds, particles,
 view bobbing and vsync, fixes the window size, and the test world is a fixed-seed superflat with
 the daylight cycle and weather off. `world-reset` puts the player at a known position every time.
 
+**The cursor is part of the frame too**, and it is the one piece of that list which is live state
+rather than a setting: it draws a hover highlight, and some GUIs point a player model or an item at
+it. Every input command moves it, so two captures taken after different clicks differ for reasons
+that have nothing to do with what you were testing. `screenshot --mouse 213,120` and
+`compare --mouse 213,120` park it first — record the golden with the same value.
+
 ### It drives the client
 
 ```bash
@@ -147,8 +153,18 @@ clientdevbridge world-reset                     # fixed-seed creative superflat,
 clientdevbridge world-reset --template my-save  # or start from a world committed in your repo
 clientdevbridge command "fill -4 4 -4 4 8 4 minecraft:air"
 clientdevbridge block 0 4 2 --json              # block, state, properties, block entity NBT
+clientdevbridge entity @s ForgeCaps             # an entity's NBT, or one branch of it
 clientdevbridge inventory
 ```
+
+`entity` is `block --nbt` for things that are not blocks. Abilities, attributes and capability data
+live on the **server** entity, which the client's copy does not have, so it is read through the same
+command source `/data get` uses. Give it a path: a player's whole NBT is tens of kilobytes and
+almost every question about one is about a single branch.
+
+`inventory --json` serialises item components through their registered codecs, the way `/data get`
+does — so a mod's own data component reads as its actual contents rather than as a class name and an
+identity hash, which is what makes it usable for asserting that a mod changed something.
 
 ### It waits on conditions instead of on sleeps
 
@@ -363,7 +379,8 @@ These exist so an agent reading stdout can act on it without guessing:
   line. Open that path with your file-reading tool.
 - Default output is readable text. `--json` prints the raw protocol result instead.
 - Exit codes: `0` success, `1` a protocol-level failure (bad arguments, a method that refused),
-  `2` a session or connection failure (nothing running, port taken, client gone).
+  `2` a session or connection failure (nothing running, port taken, client gone), `3` not ready yet
+  — a build that is still running and healthy, which is a reason to wait rather than to investigate.
 - **A pipe hides that exit code.** `clientdevbridge ... | head` reports `head`'s status, not the
   CLI's, so a failed command reads as a successful one — and piping into `head`, `tail` or `grep` is
   the natural thing to do with output this size. Check `${PIPESTATUS[0]}` in bash, or capture first

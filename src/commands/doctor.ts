@@ -279,11 +279,17 @@ function resolveDependencies(
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
 
   if (result.error !== undefined && (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
+    // A warn, not an ok. Four minutes without resolving means the caches are cold, and a cold cache
+    // is the single best predictor of a first `start` that takes 15-20 minutes -- which is the one
+    // thing a first-time caller most needs to be told. Reported as `ok` beside genuinely fine
+    // things, it set exactly the wrong expectation.
     return {
       name: 'dependencies',
       ok: true,
-      detail: 'still resolving after 4 minutes; not waited out',
-      fix: 'Run `./gradlew dependencies` yourself if a later build fails to resolve something.',
+      workedAround: true,
+      detail: 'still resolving after 4 minutes: the caches are cold, so the first start will take 15-20 minutes',
+      fix: '`start` allows for that automatically on a cold machine. Nothing to do -- but do not '
+        + 'take the first long wait for a hang.',
     };
   }
   if (result.status === 0) {

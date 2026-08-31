@@ -1,10 +1,12 @@
 import * as path from 'node:path';
 import {
+  COLD_CACHE_TIMEOUT_MS,
   DEFAULT_HEIGHT,
   DEFAULT_PORT,
   DEFAULT_USERNAME,
   DEFAULT_WIDTH,
   describeBridgeOnPort,
+  hasToolchainCache,
   describePortOwner,
   isPortFree,
   start,
@@ -14,7 +16,7 @@ import {
 import { formatDuration, keyValues, line, printJson } from '../output.js';
 import { readSession } from '../session.js';
 import { BridgeClient } from '../protocol/client.js';
-import type { Loader } from '../detect.js';
+import { detectProject, type Loader } from '../detect.js';
 import type { GlobalOptions } from './context.js';
 
 export interface StartCommandOptions {
@@ -35,6 +37,23 @@ export interface StartCommandOptions {
 }
 
 export async function runStart(global: GlobalOptions, options: StartCommandOptions): Promise<void> {
+  // A cold toolchain cache means the first build spends fifteen to twenty minutes on Minecraft
+  // itself before the client starts booting, and the default was picked on a machine where that
+  // was already done. Raising the ceiling costs nothing when the client comes up quickly -- the
+  // wait returns the moment it answers -- and saves reporting a healthy build as a failure.
+  const loader = (options.loader as Loader | undefined)
+    ?? detectProject(global.project, {}).loader;
+  const cold = !hasToolchainCache(loader);
+  const timeoutMs = options.timeout === START_DEFAULTS.timeout && cold
+    ? COLD_CACHE_TIMEOUT_MS
+    : Number(options.timeout) * 1000;
+  if (cold && !global.quiet) {
+    line(
+      `No ${loader === 'fabric' ? 'Loom' : 'NeoForm'} cache on this machine, so Minecraft itself has ` +
+        `to be built first: expect 15-20 minutes. Waiting up to ${Math.round(timeoutMs / 60_000)} minutes.`,
+    );
+  }
+
   const result = await start({
     projectDir: global.project,
     loader: options.loader as Loader | undefined,
@@ -43,7 +62,7 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     world: options.world,
     headed: options.headed,
     port: Number(options.port),
-    timeoutMs: Number(options.timeout) * 1000,
+    timeoutMs,
     gradleArgs: options.gradleArgs === undefined ? [] : options.gradleArgs.split(' ').filter((a) => a.length > 0),
     width: Number(options.width),
     height: Number(options.height),

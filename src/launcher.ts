@@ -1,8 +1,9 @@
 import { execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as net from 'node:net';
 import * as path from 'node:path';
-import { CliError, SessionError } from './errors.js';
+import { CliError, NotReadyError, SessionError } from './errors.js';
 import { LOOPBACK_HOSTS } from './loopback.js';
 import { resolveJavaHome } from './java.js';
 import { detectProject, projectPathOf, type Loader } from './detect.js';
@@ -20,6 +21,32 @@ export const DEFAULT_USERNAME = 'ClientDevBridge';
 
 /** gradle.log is truncated to this size, so a long session cannot fill the disk. */
 const GRADLE_LOG_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Whether this machine has ever built a Minecraft toolchain of this kind.
+ *
+ * A cold cache means the first `start` spends fifteen to twenty minutes decompiling and recompiling
+ * Minecraft before the client even begins to boot, and the default timeout was chosen on a machine
+ * where that work was already done. The check is deliberately coarse -- any cache at all counts --
+ * because being wrong costs only a longer ceiling on a wait that returns as soon as the client
+ * answers, while being wrong the other way costs a reported failure that never happened.
+ */
+export function hasToolchainCache(loader: Loader): boolean {
+  const home = process.env['GRADLE_USER_HOME'] ?? path.join(os.homedir(), '.gradle');
+  const caches = loader === 'fabric'
+    ? [path.join(home, 'caches', 'fabric-loom')]
+    : [path.join(home, 'caches', 'neoformruntime'), path.join(home, 'caches', 'forge_gradle')];
+  return caches.some((dir) => {
+    try {
+      return fs.readdirSync(dir).length > 0;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** The wait a first build on a cold machine actually needs, against the warm-machine default. */
+export const COLD_CACHE_TIMEOUT_MS = 1_500_000;
 
 export interface StartOptions {
   readonly projectDir: string;
@@ -499,6 +526,10 @@ async function waitForHandshake(
   // client that answers and simply is not ready.
   let attempts = 0;
   let lastObservation = 'the port was never reachable';
+  // How far the log had got when the wait began. A build that is still compiling writes constantly;
+  // one that has wedged does not. That difference is what separates "give it longer" from
+  // "something is wrong", and without it every slow first build looked like a failure.
+  const logSizeAtStart = fileSize(gradleLog);
 
   while (Date.now() < deadline) {
     if (!isProcessAlive(session.pid)) {
@@ -539,6 +570,21 @@ async function waitForHandshake(
   // A client that never answers is blocked on something, and the log cannot say what: it simply
   // stops. Ask the JVM for a thread dump before giving up, so the render thread's stack lands in
   // the game log where whoever debugs this will look.
+  // Before treating this as a failure: is it one? A cold NeoGradle cache takes fifteen to twenty
+  // minutes to produce a client -- neoFormRecompile alone compiles five thousand sources -- and the
+  // wait above expires long before that with the build perfectly healthy. Saying "the client did
+  // not answer, increase --timeout" there describes a death that has not happened.
+  if (isProcessAlive(session.pid) && fileSize(gradleLog) > logSizeAtStart) {
+    throw new NotReadyError(
+      `The client is still starting: Gradle is running and has written to the log throughout the ` +
+        `${Math.round(timeoutMs / 1000)}s wait, so nothing has failed.\n` +
+        `Currently: ${lastGradleLine(gradleLog)}\n` +
+        `A first build on a machine with no toolchain cache takes 15-20 minutes.`,
+      `Poll \`clientdevbridge status\` until it reports the client is up, or watch ${gradleLog}. ` +
+        'Do not start another client -- this one is still coming.',
+    );
+  }
+
   const dumped = await requestThreadDump();
   // A port that was never reachable at all is the case that reads as "the client never started"
   // while the client is in fact running and listening -- it just bound an address this CLI did not
@@ -563,6 +609,15 @@ async function waitForHandshake(
  * Only used to explain a failure, so every way of finding out is best-effort: a machine with
  * neither `ss` nor `lsof` simply gets a message saying so.
  */
+/** The size of a file, or zero when it is not there yet. Used only to tell growth from silence. */
+function fileSize(file: string): number {
+  try {
+    return fs.statSync(file).size;
+  } catch {
+    return 0;
+  }
+}
+
 function describeListeners(port: number): string {
   for (const [command, args] of [
     ['ss', ['-ltnH', `sport = :${port}`]],

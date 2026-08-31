@@ -21,6 +21,7 @@ import {
   runWorldLeave,
   runWorldList,
   runWorldLoad,
+  runEntity,
   runHold,
   runWalkTo,
   runWorldReset,
@@ -127,7 +128,8 @@ program
   .description('capture the framebuffer to a PNG and print its path')
   .option('--name <name>', 'file name to write (default: a timestamp)')
   .option('--region <x,y,w,h>', 'capture only this rectangle')
-  .option('--space <space>', 'coordinate space for --region: gui or pixel', 'gui')
+  .option('--mouse <x,y>', 'park the cursor here first, so hover state cannot vary between captures')
+  .option('--space <space>', 'coordinate space for --region and --mouse: gui or pixel', 'gui')
   .option('--scale <factor>', 'rescale the captured image')
   .option('--after-ticks <n>', 'wait this many client ticks before capturing')
   .option('--diff <image.png>', 'assert this capture differs from an earlier one; exit 1 if it does not')
@@ -334,6 +336,11 @@ program
   .action(async (x, z, options) => runWalkTo(globals(), x, z, options));
 
 program
+  .command('entity [selector] [path]')
+  .description("read an entity's NBT from the server, like `block --nbt` but for entities")
+  .action(async (selector, path) => runEntity(globals(), selector ?? '@s', path));
+
+program
   .command('hold <slot>')
   .description('select a hotbar slot 0-8, so the next place, use or break acts with that item')
   .action(async (slot) => runHold(globals(), slot));
@@ -380,7 +387,8 @@ program
   .command('compare <name>')
   .description('compare a screenshot against a committed golden image')
   .option('--region <x,y,w,h>', 'compare only this rectangle; applied to the golden too, so it needs no re-record')
-  .option('--space <space>', 'coordinate space for --region: gui or pixel', 'gui')
+  .option('--mouse <x,y>', 'park the cursor here first; record the golden with the same value')
+  .option('--space <space>', 'coordinate space for --region and --mouse: gui or pixel', 'gui')
   .option('--threshold <pct>', 'percentage of differing pixels still counted as a match', '0.1')
   .option('--pixel-threshold <0-1>', 'per-pixel colour tolerance passed to pixelmatch', '0.1')
   .option('--after-ticks <n>', 'wait this many ticks before capturing')
