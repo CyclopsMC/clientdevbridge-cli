@@ -43,6 +43,16 @@ All notable changes to this project will be documented in this file.
 * `block` prints whatever a mod's `BlockExtractors` registration says distinguishes one instance of
   its block entity from another.
 
+### Changed
+* `--json` is compact unless stdout is a terminal. Indentation was 42% of every payload and carries
+  no information; a person at a terminal is the one reader it helps, and `isTTY` is exactly that
+  reader.
+* `--json` omits empty container and inventory slots, reporting `slotCount` instead. A container is
+  mostly empty and each empty slot cost about eighty bytes to say so: a chest screen holding one
+  item went from 9,813 bytes to 792, a 92% cut, with the slot grid still derivable from the filled
+  slots and the total. `--include-empty` restores every rectangle.
+  **Look slots up by their `index` field, not by position in the array** — it is no longer dense.
+
 ### Fixed
 * `eval` and `wait --expr` work on Minecraft 26. The init script pinned Groovy 4.0.22, which cannot
   read Java 25 class files, so both failed there with `Unsupported class file major version 69` —

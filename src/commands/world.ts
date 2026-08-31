@@ -334,14 +334,22 @@ export async function runLook(
   });
 }
 
-export async function runInventory(global: GlobalOptions): Promise<void> {
+export async function runInventory(
+  global: GlobalOptions,
+  options: { includeEmpty: boolean } = { includeEmpty: false },
+): Promise<void> {
   await withClient(global, async ({ client }) => {
     const result = await client.call<{
       slots: { index: number; item: string | null; count: number; name?: string }[];
       selected: number;
     }>('player.inventory');
     if (global.json) {
-      printJson(result);
+      // A player inventory is forty-one slots and almost always nearly empty: one item cost 2,909
+      // bytes to report, of which all but a couple of hundred said "nothing here". The indices are
+      // on the slots that remain, so nothing is ambiguous.
+      printJson(options.includeEmpty
+        ? result
+        : { ...result, slots: result.slots.filter((slot) => slot.item !== null), slotCount: result.slots.length });
       return;
     }
     for (const slot of result.slots) {

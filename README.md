@@ -272,6 +272,18 @@ part, using a tool, wrenching with `--sneak`. `open-gui` is `use` plus a wait fo
 
 ## Output conventions
 
+Output is sized for the thing reading it. `--json` is compact unless stdout is a terminal, and omits
+the empty slots of a container or inventory — a chest screen with one item in it costs 792 bytes as
+JSON where it used to cost 9,813. `slotCount` comes with it and the slots are a regular grid, so the
+missing geometry is derivable; `--include-empty` restores every rectangle. **Read slots by their
+`index` field rather than by position in the array.**
+
+The cheapest question is usually not the JSON one: the same screen is 225 bytes as an outline and
+792 as JSON, and a screenshot read as an image is about 546 tokens. `compare` and
+`screenshot --diff` answer "did this change" with an exit code and one line, without an image
+entering anyone's context.
+
+
 These exist so an agent reading stdout can act on it without guessing:
 
 - **Images are never printed.** `screenshot` writes a file and prints its absolute path on its own

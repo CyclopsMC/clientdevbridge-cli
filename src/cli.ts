@@ -157,6 +157,7 @@ program
   .description('print the widget tree of the open screen as an outline')
   .option('--include-hidden', 'also list invisible widgets and pure decorations', false)
   .option('--max-depth <n>', 'stop descending past this depth')
+  .option('--include-empty', 'keep the empty container slots in --json output', false)
   .action(async (options) => runSnapshot(globals(), options));
 
 program
@@ -356,7 +357,8 @@ program
 program
   .command('inventory')
   .description("list the player's inventory")
-  .action(async () => runInventory(globals()));
+  .option('--include-empty', 'keep the empty slots in --json output', false)
+  .action(async (options) => runInventory(globals(), options));
 
 program
   .command('compare <name>')

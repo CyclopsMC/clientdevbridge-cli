@@ -29,9 +29,34 @@ export async function fetchSnapshot(
   return parsed.data;
 }
 
+/**
+ * Drops the empty slots from a container, and says how many there were.
+ *
+ * A container screen is mostly empty: the modded screen this was measured on had 39 empty slots of
+ * 40, and each one costs about eighty bytes of `{"index":n,"item":null,"count":0,"x":..,"y":..}` --
+ * 3.2 kB of a 11.7 kB payload to say "nothing here, forty times". The text outline has always
+ * omitted them for exactly this reason.
+ *
+ * `slotCount` keeps what completeness was actually for: the slots are a regular grid, so the
+ * geometry of the empty ones is derivable from the filled ones and the total. `--include-empty`
+ * restores every rectangle for the caller who wants it, and the protocol is untouched -- the mod
+ * still reports all of them, and this is presentation.
+ */
+function withoutEmptySlots(snapshot: Snapshot, includeEmpty: boolean): unknown {
+  const container = snapshot.container;
+  if (includeEmpty || container === null) {
+    return snapshot;
+  }
+  const filled = container.slots.filter((slot) => slot.item !== null);
+  return {
+    ...snapshot,
+    container: { ...container, slots: filled, slotCount: container.slots.length },
+  };
+}
+
 export async function runSnapshot(
   global: GlobalOptions,
-  options: { includeHidden: boolean; maxDepth?: string | undefined },
+  options: { includeHidden: boolean; maxDepth?: string | undefined; includeEmpty: boolean },
 ): Promise<void> {
   await withClient(global, async ({ client }) => {
     const snapshot = await fetchSnapshot(client, {
@@ -39,7 +64,7 @@ export async function runSnapshot(
       maxDepth: options.maxDepth === undefined ? undefined : Number(options.maxDepth),
     });
     if (global.json) {
-      printJson(snapshot);
+      printJson(withoutEmptySlots(snapshot, options.includeEmpty));
       return;
     }
     line(formatOutline(snapshot, { includeHidden: options.includeHidden }));

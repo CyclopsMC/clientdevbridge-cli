@@ -11,8 +11,22 @@ export interface OutputOptions {
   readonly quiet: boolean;
 }
 
+/**
+ * Prints a protocol result as JSON: indented at a terminal, compact everywhere else.
+ *
+ * The indentation is not free. On a modded container screen `--json snapshot` is 11,741 bytes, of
+ * which 5,017 -- 42% -- is whitespace carrying no information at all. That is the single largest
+ * thing this CLI emits, and its usual reader is a model whose context it goes into, or a `jq` that
+ * does not care.
+ *
+ * A person at a terminal is the one reader indentation helps, and `isTTY` is exactly that reader.
+ * Nobody has to know the rule or pass a flag for it.
+ */
 export function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  const json = process.stdout.isTTY === true
+    ? JSON.stringify(value, null, 2)
+    : JSON.stringify(value);
+  process.stdout.write(`${json}\n`);
 }
 
 export function line(text = ''): void {
