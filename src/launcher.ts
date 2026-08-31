@@ -5,8 +5,8 @@ import * as path from 'node:path';
 import { CliError, SessionError } from './errors.js';
 import { LOOPBACK_HOSTS } from './loopback.js';
 import { resolveJavaHome } from './java.js';
-import { detectProject, type Loader } from './detect.js';
-import { pinOptions, renderInitScript } from './initscript.js';
+import { detectProject, projectPathOf, type Loader } from './detect.js';
+import { bridgeProperties, pinOptions, renderInitScript } from './initscript.js';
 import { ensureDirectories, ensureGitignore, resolvePaths } from './paths.js';
 import { clearSession, isProcessAlive, readSession, type Session, writeSession } from './session.js';
 import { BridgeClient } from './protocol/client.js';
@@ -278,8 +278,9 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       height: options.height,
       jdwpPort: options.jdwpPort,
       projectDir: project.projectDir,
-      // The Gradle path of the module being launched: ':loader-neoforge:runClient' -> ':loader-neoforge'.
-      targetProjectPath: project.gradleTask.replace(/:runClient$/, '') || ':',
+      // The Gradle path of the module being launched: ':loader-neoforge:runClient' -> ':loader-neoforge',
+      // and ':runClient' -> ':' for a single-module project.
+      targetProjectPath: projectPathOf(project.gradleTask),
     }),
     'utf8',
   );
@@ -341,6 +342,21 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       ...process.env,
       ...(java.javaHome === null ? {} : { JAVA_HOME: java.javaHome }),
       ...display.env,
+      // The same properties the init script sets on the run task, passed a second way on purpose.
+      //
+      // The script can only reach a run task it recognises as a JavaExec, which Loom's and
+      // ModDevGradle's are and NeoGradle 7's userdev task is not. When it cannot, the mod loads and
+      // logs "present but inert", and the CLI sees nothing but a timeout -- fifteen silent minutes
+      // for a caller with no way to tell a slow build from a broken injection.
+      //
+      // JAVA_TOOL_OPTIONS is inherited by every JVM Gradle forks, so it reaches the client whatever
+      // the plugin does. Duplicated properties are harmless: the last one wins and they agree.
+      JAVA_TOOL_OPTIONS: [
+        process.env['JAVA_TOOL_OPTIONS'],
+        ...bridgeProperties({ port: options.port, projectDir: project.projectDir, evalEnabled: options.evalEnabled }),
+      ]
+        .filter((part) => part !== undefined && part !== '')
+        .join(' '),
     },
   });
   child.unref();
@@ -438,6 +454,34 @@ export function newestInMavenLocal(minecraftVersion: string, loader: Loader): st
   return versions.length === 0 ? null : (versions[versions.length - 1] as string);
 }
 
+/**
+ * Turns the two ways a client can be up and silent into a sentence.
+ *
+ * A timeout is the same symptom for a slow build, a mod that never got onto the classpath, and a
+ * mod that got there and was never switched on -- and the log says which, if anything is looking.
+ * The last of those cost a cold start fifteen minutes of watching "Still starting..." with the
+ * answer sitting in the log the whole time.
+ */
+function diagnoseSilence(gradleLog: string): string {
+  const log = readTruncated(gradleLog);
+  if (log.includes('is present but inert')) {
+    return (
+      'The mod loaded but was not enabled: the log says "present but inert", which means the\n' +
+      '-Dclientdevbridge.enabled=true property never reached the client. That happens when the run\n' +
+      "task is not one this CLI's init script can configure. Report the loader and plugin versions at\n" +
+      'https://github.com/CyclopsMC/clientdevbridge-cli/issues\n'
+    );
+  }
+  if (log.length > 0 && !log.includes('clientdevbridge')) {
+    return (
+      'The bridge mod never appears in the log, so it was not added to the run at all. Check that\n' +
+      `the init script targeted the right Gradle project; ${'`clientdevbridge doctor`'} names the task it\n` +
+      'detected.\n'
+    );
+  }
+  return '';
+}
+
 async function waitForHandshake(
   session: Session,
   gradleLog: string,
@@ -499,6 +543,7 @@ async function waitForHandshake(
   throw new SessionError(
     `The client did not answer on port ${session.port} within ${Math.round(timeoutMs / 1000)}s.\n` +
       `Reached the port ${attempts} time(s); last time, ${lastObservation}.\n` +
+      diagnoseSilence(gradleLog) +
       (listeners === null ? '' : `Sockets listening on that port: ${listeners}\n`) +
       tailFile(gradleLog, 25),
     dumped

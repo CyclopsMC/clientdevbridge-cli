@@ -1,6 +1,26 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Fixed
+* **The bridge now works on single-module mod projects.** `detectGradleTask` answered a bare
+  `runClient`, the launcher stripped the task with a pattern needing a leading colon, and the
+  injection target became the literal string `runClient` — a path no Gradle project has, so the init
+  script's guard returned early for every project and nothing was injected at all. The client booted
+  as a plain dev client and never answered, with nothing naming the cause. Most mod repositories are
+  single-module; both e2e fixtures are multiloader, which is why nothing caught it.
+* The mod's system properties are also passed in `JAVA_TOOL_OPTIONS`, so they reach the client even
+  when the run task is not a `JavaExec` the init script can configure — NeoGradle 7's userdev task is
+  not, and there the mod loaded, logged "present but inert", and the CLI showed only a timeout.
+* A `start` timeout now says which of the two silent failures happened: the mod present but not
+  enabled, or never on the classpath at all.
+* `doctor` resolves the project's compile classpath instead of only pinging hosts. Reachability is
+  not usability — GitHub Packages answers an HTTPS HEAD from anyone and then refuses to serve without
+  credentials — so "Everything checks out" used to be followed by six and a half minutes of Gradle
+  and `Username must not be null!`. `--no-dependencies` skips it.
+
 <a name="v0.2.0"></a>
 ## [v0.2.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.1.1...v0.2.0) - 2026-08-31
 

@@ -93,7 +93,24 @@ export function detectGradleTask(projectDir: string, loader: Loader): { task: st
     const moduleDir = path.join(projectDir, moduleName);
     return { task: `:${moduleName}:runClient`, runDir: detectRunDir(moduleDir, projectDir, loader) };
   }
-  return { task: 'runClient', runDir: detectRunDir(projectDir, projectDir, loader) };
+  // Fully qualified, so the Gradle path of the module being launched can be taken off it without
+  // guessing. A bare 'runClient' used to be produced here, and the caller stripped the task name
+  // with a pattern that needs the leading colon -- so on a single-module project the injection
+  // target became the literal string 'runClient', no project matched it, and the init script
+  // injected nothing anywhere. The client then boots as a plain dev client and never answers.
+  return { task: ':runClient', runDir: detectRunDir(projectDir, projectDir, loader) };
+}
+
+/**
+ * The Gradle path of the module a run task belongs to: ':loader-neoforge:runClient' is
+ * ':loader-neoforge', and ':runClient' is the root project, ':'.
+ */
+export function projectPathOf(gradleTask: string): string {
+  const lastColon = gradleTask.lastIndexOf(':');
+  if (lastColon < 0) {
+    return ':';
+  }
+  return lastColon === 0 ? ':' : gradleTask.slice(0, lastColon);
 }
 
 /**

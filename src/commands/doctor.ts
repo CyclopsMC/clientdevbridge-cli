@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
@@ -120,7 +121,7 @@ function javaCheck(requiredMajor: number): Check {
 
 export async function collectChecks(
   projectDir: string,
-  options: { network: boolean; loader?: string | undefined },
+  options: { network: boolean; dependencies: boolean; loader?: string | undefined },
 ): Promise<Check[]> {
   const checks: Check[] = [];
   // The required Java version is a property of the project, not a constant: Minecraft 1.21 needs
@@ -172,6 +173,11 @@ export async function collectChecks(
         detail: `Minecraft ${project.minecraftVersion}, ${project.loader}, task ${project.gradleTask}`,
         fix: '',
       });
+
+      if (options.dependencies) {
+        checks.push(resolveDependencies(projectDir, wrapper,
+          findJavaHome(declaredJavaVersion(readGradleProperties(projectDir)))?.home ?? null));
+      }
 
       const artifactLine = findLine(project.minecraftVersion);
       checks.push({
@@ -238,9 +244,85 @@ export async function collectChecks(
   return checks;
 }
 
+/**
+ * Asks Gradle to resolve the project's own compile classpath, and reports what it says.
+ *
+ * The network checks above are HTTPS HEAD probes, and reachability is not usability: GitHub
+ * Packages answers a HEAD from anyone and then refuses to serve a dependency without credentials.
+ * A cold start on a real repository saw "Everything checks out", then six and a half minutes of
+ * Gradle, then `Username must not be null!` -- which is what a token with the wrong scope looks
+ * like, and which this project's own docs already describe as unhelpful.
+ *
+ * Twenty seconds of Gradle here is worth six minutes of Gradle there. It is opt-out rather than
+ * opt-in because the caller who most needs it is the one who does not know to ask.
+ */
+function resolveDependencies(projectDir: string, wrapper: string, javaHome: string | null): Check {
+  const result = spawnSync(
+    wrapper,
+    ['--quiet', '--console=plain', 'dependencies', '--configuration', 'compileClasspath'],
+    {
+      cwd: projectDir,
+      encoding: 'utf8',
+      timeout: 240_000,
+      env: { ...process.env, ...(javaHome === null ? {} : { JAVA_HOME: javaHome }) },
+    },
+  );
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+
+  if (result.error !== undefined && (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
+    return {
+      name: 'dependencies',
+      ok: true,
+      detail: 'still resolving after 4 minutes; not waited out',
+      fix: 'Run `./gradlew dependencies` yourself if a later build fails to resolve something.',
+    };
+  }
+  if (result.status === 0) {
+    return { name: 'dependencies', ok: true, detail: 'the project resolves its compile classpath', fix: '' };
+  }
+
+  // The message Gradle gives for GitHub Packages without usable credentials names neither the
+  // repository nor the credential, so it is worth translating once rather than by every caller.
+  const credentials = output.includes('Username must not be null')
+    || output.includes('Received status code 401');
+  return {
+    name: 'dependencies',
+    ok: false,
+    detail: credentials
+      ? 'a repository refused the credentials it was given'
+      : (whatWentWrong(output) ?? 'gradle could not resolve them'),
+    fix: credentials
+      ? 'A Maven the project declares needs credentials this environment does not have. For CyclopsMC '
+        + 'packages set GITHUB_USER and a GITHUB_TOKEN with read:packages, or build the missing '
+        + 'dependencies from source with `./gradlew publishToMavenLocal` in their repositories. '
+        + 'See docs/cloud-setup.md in the mod repository.'
+      : 'Run `./gradlew dependencies --configuration compileClasspath` to see the whole failure.',
+  };
+}
+
+/**
+ * Gradle's own one-line summary of a failure, which it prints after "* What went wrong:".
+ *
+ * Better than matching on the shapes of individual failures: it is the same place for a missing
+ * plugin, an unresolvable coordinate and a repository refusing credentials, so this keeps working
+ * for the failure nobody predicted.
+ */
+function whatWentWrong(output: string): string | undefined {
+  const lines = output.split('\n');
+  const header = lines.findIndex((entry) => entry.trim() === '* What went wrong:');
+  if (header < 0) {
+    return undefined;
+  }
+  const said = lines
+    .slice(header + 1, header + 4)
+    .map((entry) => entry.trim().replace(/^>\s*/, ''))
+    .filter((entry) => entry.length > 0);
+  return said.length === 0 ? undefined : said.join(' ');
+}
+
 export async function runDoctor(
   global: GlobalOptions,
-  options: { network: boolean; loader?: string | undefined },
+  options: { network: boolean; dependencies: boolean; loader?: string | undefined },
 ): Promise<number> {
   const checks = await collectChecks(global.project, options);
   const failures = checks.filter((check) => !check.ok);

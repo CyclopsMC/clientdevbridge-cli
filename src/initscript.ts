@@ -37,14 +37,35 @@ function groovyString(value: string): string {
  * DSL: both plugins' `runClient` tasks are `JavaExec` subclasses, so one code path covers both
  * loaders and does not break when either plugin reshuffles its extensions.
  */
-export function renderInitScript(options: InitScriptOptions): string {
-  const dependency = coordinate(options.minecraftVersion, options.loader, options.bridgeVersion);
-
-  const jvmArgs = [
+/**
+ * The system properties that turn the mod on and tell it where to listen.
+ *
+ * Shared so the init script and the environment fallback cannot drift apart — they are the same
+ * settings delivered two ways, and a difference between them would be a bug nobody would see until
+ * one of the two routes was the only one working.
+ *
+ * Deliberately only the `-D` properties. The JDWP agent argument must not travel this way: the
+ * environment is inherited by every JVM Gradle forks, and a debug agent on a fixed port in all of
+ * them collides with itself.
+ */
+export function bridgeProperties(options: {
+  readonly port: number;
+  readonly projectDir: string;
+  readonly evalEnabled: boolean;
+}): string[] {
+  return [
     '-Dclientdevbridge.enabled=true',
     `-Dclientdevbridge.port=${options.port}`,
     `-Dclientdevbridge.projectDir=${options.projectDir}`,
     ...(options.evalEnabled ? ['-Dclientdevbridge.eval=true'] : []),
+  ];
+}
+
+export function renderInitScript(options: InitScriptOptions): string {
+  const dependency = coordinate(options.minecraftVersion, options.loader, options.bridgeVersion);
+
+  const jvmArgs = [
+    ...bridgeProperties(options),
     ...(options.jdwpPort === null
       ? []
       : [`-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=127.0.0.1:${options.jdwpPort}`]),

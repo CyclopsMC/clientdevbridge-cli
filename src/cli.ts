@@ -420,6 +420,7 @@ program
   .description('check that this machine can build and launch a dev client')
   .option('--loader <loader>', 'check for this loader specifically: fabric or neoforge')
   .option('--no-network', 'skip the network reachability probes')
+  .option('--no-dependencies', "skip resolving the project's compile classpath (the slowest check)")
   .action(async (options) => {
     const code = await runDoctor(globals(), options);
     process.exitCode = code;
