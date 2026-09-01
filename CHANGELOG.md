@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Added
+* `scroll` with no screen open changes the hotbar slot, as it does for a player. It used to be
+  refused outright — "no screen is open, so there is nothing to deliver scrolling to" — which is the
+  one situation where scrolling has an obvious meaning. `--at` is now optional. Scrolling and
+  dragging *inside* a screen already worked, including the creative inventory's list and scrollbar;
+  they are documented and covered by the end-to-end suite now.
+
 <a name="v0.4.0"></a>
 ## [v0.4.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.3.0...v0.4.0) - 2026-08-31
 

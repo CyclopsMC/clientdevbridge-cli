@@ -135,8 +135,17 @@ clientdevbridge key ESCAPE                      # or 'E', or 'GLFW_KEY_F3'
 clientdevbridge hold-key W --ticks 20           # movement, held through the real key binding
 clientdevbridge hold 2                          # select hotbar slot 2, so `use` acts with it
 clientdevbridge drag --from 133,179 --to 205,121
-clientdevbridge scroll --at 200,120 --dy -3
+clientdevbridge scroll --at 200,120 --dy -3    # or with no screen open: change hotbar slot
 ```
+
+`drag` and `scroll` drive a scrollable screen the way a player does. The creative inventory is the
+worked example: `scroll --at 200,110 --dy -3` moves the item list, and
+`drag --from 298,72 --to 298,180` takes the scrollbar from top to bottom — a drag is a click, a run
+of moves and a release, so a screen tracking its own drag state follows it. Both work on the search
+tab and on a filtered list.
+
+With **no screen open**, `scroll` changes the hotbar slot, which is the only thing scrolling does in
+the world — `--at` is not needed there. `hold <slot>` is the direct way to the same thing.
 
 Input goes through the game's own handlers, so a mod's click logic runs exactly as it would for a
 player. Off-screen coordinates are refused rather than silently doing nothing.

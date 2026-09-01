@@ -229,11 +229,15 @@ export async function runMouseMove(global: GlobalOptions, at: string, options: {
 
 export async function runScroll(
   global: GlobalOptions,
-  options: { at: string; dy: string; dx: string; space: string },
+  options: { at?: string | undefined; dy: string; dx: string; space: string },
 ): Promise<void> {
   await withClient(global, async ({ client }) => {
+    // --at is only meaningful with a screen open. With none, scrolling changes the hotbar slot,
+    // which is what it does for a player and has no coordinates at all -- so the point defaults to
+    // wherever the pointer already is rather than being demanded.
+    const point = options.at === undefined ? { x: 0, y: 0 } : parsePoint(options.at, '--at');
     const result = await client.call<Record<string, unknown>>('input.scroll', {
-      ...parsePoint(options.at, '--at'),
+      ...point,
       dx: Number(options.dx),
       dy: Number(options.dy),
       space: options.space,

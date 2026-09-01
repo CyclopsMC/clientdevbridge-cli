@@ -221,8 +221,8 @@ program
 
 program
   .command('scroll')
-  .description('scroll at a point')
-  .requiredOption('--at <x,y>', 'where to scroll')
+  .description('scroll at a point in a screen, or change hotbar slot when none is open')
+  .option('--at <x,y>', 'where to scroll; not needed with no screen open')
   .requiredOption('--dy <amount>', 'vertical scroll amount')
   .option('--dx <amount>', 'horizontal scroll amount', '0')
   .option('--space <space>', 'gui or pixel', 'gui')
