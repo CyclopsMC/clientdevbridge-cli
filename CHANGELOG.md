@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.5.0"></a>
+## [v0.5.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.4.0...v0.5.0) - 2026-09-01
 
 ### Added
 * `scroll` with no screen open changes the hotbar slot, as it does for a player. It used to be
