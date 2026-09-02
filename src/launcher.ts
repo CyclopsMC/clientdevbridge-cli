@@ -61,6 +61,7 @@ export interface StartOptions {
   readonly width: number;
   readonly height: number;
   readonly evalEnabled: boolean;
+  readonly toasts: boolean;
   readonly pinOptions: boolean;
   readonly gitignore: boolean;
   readonly jdwpPort: number | null;
@@ -303,6 +304,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       bridgeVersion,
       port: options.port,
       evalEnabled: options.evalEnabled,
+      toasts: options.toasts,
       world: options.world ?? null,
       username: DEFAULT_USERNAME,
       width: options.width,
@@ -384,7 +386,12 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       // the plugin does. Duplicated properties are harmless: the last one wins and they agree.
       JAVA_TOOL_OPTIONS: [
         process.env['JAVA_TOOL_OPTIONS'],
-        ...bridgeProperties({ port: options.port, projectDir: project.projectDir, evalEnabled: options.evalEnabled }),
+        ...bridgeProperties({
+          port: options.port,
+          projectDir: project.projectDir,
+          evalEnabled: options.evalEnabled,
+          toasts: options.toasts,
+        }),
       ]
         .filter((part) => part !== undefined && part !== '')
         .join(' '),
@@ -416,6 +423,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       width: options.width,
       height: options.height,
       evalEnabled: options.evalEnabled,
+      toasts: options.toasts,
       pinOptions: options.pinOptions,
       gradleArgs: [...options.gradleArgs],
       timeoutMs: options.timeoutMs,

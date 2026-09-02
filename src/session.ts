@@ -37,6 +37,9 @@ export const sessionSchema = z.object({
       width: z.number().int().positive(),
       height: z.number().int().positive(),
       evalEnabled: z.boolean(),
+      // Optional so a session.json written by an older CLI still parses: a client running under
+      // the previous version must not become unreadable the moment this one is installed.
+      toasts: z.boolean().optional(),
       pinOptions: z.boolean(),
       gradleArgs: z.array(z.string()),
       timeoutMs: z.number().int().positive(),

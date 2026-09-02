@@ -33,6 +33,7 @@ export interface StartCommandOptions {
   readonly eval: boolean;
   readonly pinOptions: boolean;
   readonly gitignore: boolean;
+  readonly toasts: boolean;
   readonly jdwpPort?: string | undefined;
 }
 
@@ -67,6 +68,7 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     width: Number(options.width),
     height: Number(options.height),
     evalEnabled: options.eval,
+    toasts: options.toasts,
     pinOptions: options.pinOptions,
     gitignore: options.gitignore,
     jdwpPort: options.jdwpPort === undefined ? null : Number(options.jdwpPort),
@@ -90,6 +92,11 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     ['username', DEFAULT_USERNAME],
     ['world', result.session.world],
     ['eval', String(hello['evalEnabled'] ?? false)],
+    // Not `?? false`: a mod too old to report the field would then read as "toasts are off", which
+    // is exactly the confusion this line exists to prevent.
+    ['toasts', hello['toastsEnabled'] === undefined
+      ? 'unknown (this mod build does not report it)'
+      : String(hello['toastsEnabled'])],
     // Fabric loads its API as ~50 separate modules, which turns this into a wall of names that
     // says nothing. What a caller needs from it is whether the mod under test is loaded.
     ['mods', summariseMods(hello['mods'] as string[] | undefined)],

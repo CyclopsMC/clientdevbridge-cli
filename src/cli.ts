@@ -92,6 +92,7 @@ program
   .option('--no-eval', 'do not enable the eval escape hatch')
   .option('--no-pin-options', 'do not pin the determinism settings in options.txt')
   .option('--no-gitignore', "do not add .clientdevbridge/ to the project's .gitignore")
+  .option('--toasts', 'let toast popups render; they are suppressed by default so screenshots are reproducible', false)
   .action(async (options) => runStart(globals(), options));
 
 program

@@ -9,6 +9,7 @@ export interface InitScriptOptions {
   readonly bridgeVersion: string;
   readonly port: number;
   readonly evalEnabled: boolean;
+  readonly toasts?: boolean | undefined;
   readonly world: string | null;
   readonly username: string;
   readonly width: number;
@@ -52,12 +53,17 @@ export function bridgeProperties(options: {
   readonly port: number;
   readonly projectDir: string;
   readonly evalEnabled: boolean;
+  readonly toasts?: boolean | undefined;
 }): string[] {
   return [
     '-Dclientdevbridge.enabled=true',
     `-Dclientdevbridge.port=${options.port}`,
     `-Dclientdevbridge.projectDir=${options.projectDir}`,
     ...(options.evalEnabled ? ['-Dclientdevbridge.eval=true'] : []),
+    // Only when asked for. The mod suppresses toasts so that a screenshot taken near one is
+    // reproducible, which is the right default -- but it left no way to look at a toast at all,
+    // and a mod whose feedback *is* a toast then cannot be tested through this tool.
+    ...(options.toasts === true ? ['-Dclientdevbridge.toasts=true'] : []),
   ];
 }
 

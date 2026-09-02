@@ -44,6 +44,7 @@ function relaunchOptions(session: Session): StartCommandOptions {
     width: String(launch?.width ?? Number(START_DEFAULTS.width)),
     height: String(launch?.height ?? Number(START_DEFAULTS.height)),
     eval: launch?.evalEnabled ?? true,
+    toasts: launch?.toasts ?? false,
     pinOptions: launch?.pinOptions ?? true,
     jdwpPort: session.jdwpPort === null ? undefined : String(session.jdwpPort),
   };

@@ -120,6 +120,10 @@ Determinism is not luck: `start` pins the GUI scale, disables clouds, particles,
 view bobbing and vsync, fixes the window size, and the test world is a fixed-seed superflat with
 the daylight cycle and weather off. `world-reset` puts the player at a known position every time.
 
+**Toast popups are suppressed** for the same reason — an advancement or recipe toast fades over
+several seconds, so a screenshot taken near one is not reproducible. `start --toasts` turns them
+back on, for when the toast is the thing you are testing.
+
 **The cursor is part of the frame too**, and it is the one piece of that list which is live state
 rather than a setting: it draws a hover highlight, and some GUIs point a player model or an item at
 it. Every input command moves it, so two captures taken after different clicks differ for reasons

@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DETERMINISM_OPTIONS, pinOptions, renderInitScript } from '../src/initscript.js';
+import { bridgeProperties, DETERMINISM_OPTIONS, pinOptions, renderInitScript } from '../src/initscript.js';
 
 const baseOptions = {
   minecraftVersion: '1.21.1',
@@ -177,5 +177,34 @@ describe('pinOptions', () => {
     pinOptions(directory);
     const second = pinOptions(directory);
     expect(second.changed).toEqual([]);
+  });
+});
+
+/**
+ * Toast popups, which the mod suppresses unless told otherwise.
+ *
+ * Suppressing them is the right default -- a toast fades over several seconds, so a screenshot
+ * taken near one is not reproducible -- but there was no way to turn them back on, so a mod whose
+ * feedback *is* a toast could not be looked at through this tool at all. An agent testing one
+ * ended up patching the installed CLI's own initscript to inject the property by hand.
+ */
+describe('the toasts property', () => {
+  it('is absent by default, so screenshots stay reproducible', () => {
+    expect(bridgeProperties({ port: 25599, projectDir: '/tmp/p', evalEnabled: true }))
+      .not.toContain('-Dclientdevbridge.toasts=true');
+  });
+
+  it('is set when asked for', () => {
+    expect(bridgeProperties({ port: 25599, projectDir: '/tmp/p', evalEnabled: true, toasts: true }))
+      .toContain('-Dclientdevbridge.toasts=true');
+  });
+
+  // Both routes carry it: the init script configures the run task, and JAVA_TOOL_OPTIONS covers the
+  // toolchains whose run task the init script cannot configure. A flag that reached only one of
+  // them would work on Fabric and silently not on NeoGradle.
+  it('reaches the rendered init script', () => {
+    expect(renderInitScript({ ...baseOptions, toasts: true }))
+      .toContain('-Dclientdevbridge.toasts=true');
+    expect(renderInitScript(baseOptions)).not.toContain('clientdevbridge.toasts');
   });
 });

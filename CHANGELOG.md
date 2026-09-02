@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Added
+* `start --toasts` lets toast popups render. The mod suppresses them so a screenshot taken near a
+  fading toast is still reproducible, which is the right default — but there was no way to turn them
+  back on, so a mod whose feedback *is* a toast could not be looked at through this tool at all. An
+  agent testing one had to patch the installed CLI to inject the property by hand. `start` now
+  reports whether the running client has them enabled, alongside `eval`.
+
 <a name="v0.5.0"></a>
 ## [v0.5.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.4.0...v0.5.0) - 2026-09-01
 
