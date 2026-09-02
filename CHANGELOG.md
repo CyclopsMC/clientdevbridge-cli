@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.6.0"></a>
+## [v0.6.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.5.0...v0.6.0) - 2026-09-02
 
 ### Added
 * `start --toasts` lets toast popups render. The mod suppresses them so a screenshot taken near a
