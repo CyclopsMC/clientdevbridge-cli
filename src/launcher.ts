@@ -7,7 +7,7 @@ import { CliError, NotReadyError, SessionError } from './errors.js';
 import { LOOPBACK_HOSTS } from './loopback.js';
 import { resolveJavaHome } from './java.js';
 import { detectProject, projectPathOf, type Loader } from './detect.js';
-import { bridgeProperties, pinOptions, renderInitScript } from './initscript.js';
+import { bridgeProperties, pinOptions, renderInitScript, restorePinnedOptions } from './initscript.js';
 import { ensureDirectories, ensureGitignore, resolvePaths } from './paths.js';
 import { clearSession, isProcessAlive, readSession, type Session, writeSession } from './session.js';
 import { BridgeClient } from './protocol/client.js';
@@ -319,7 +319,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   );
 
   if (options.pinOptions) {
-    const result = pinOptions(project.runDir);
+    const result = pinOptions(project.runDir, paths.optionsBackup);
     if (result.changed.length > 0) {
       options.onProgress?.(
         `Pinned determinism options in ${path.join(project.runDir, 'options.txt')} (changed: ${result.changed.join(', ')})`,
@@ -446,7 +446,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     // The guess was wrong, so this run is not pinned. Pin the directory the client actually named,
     // which is also what `detectRunDir` will find next time, and say so rather than let the next
     // screenshot comparison fail for a reason nothing points at.
-    pinOptions(gameDir);
+    pinOptions(gameDir, paths.optionsBackup);
     options.onProgress?.(
       `The client runs in ${gameDir}, not ${project.runDir}. Pinned the determinism options there; ` +
         'restart to apply them to a running client.',
@@ -757,19 +757,31 @@ export function readTruncated(file: string): string {
 export async function stop(
   projectDir: string,
   port = DEFAULT_PORT,
-): Promise<{ stopped: boolean; wasStale: boolean; orphan: string | null }> {
+): Promise<{ stopped: boolean; wasStale: boolean; orphan: string | null; restoredOptions: string[] }> {
   const status = readSession(projectDir);
   if (status.session === null) {
     // No session file, but something may still be holding the port: a client whose session.json
     // was deleted is exactly the case where a caller most needs to be told, rather than quietly
     // told "nothing was running" while a Minecraft client keeps going.
     const orphan = (await isPortFree(port)) ? null : describePortOwner(port);
-    return { stopped: false, wasStale: status.stale, orphan };
+    // Still restore: a client that crashed never got the chance, and the developer's options.txt
+    // should not stay pinned because of it.
+    return {
+      stopped: false,
+      wasStale: status.stale,
+      orphan,
+      restoredOptions: restorePinnedOptions(status.paths.optionsBackup),
+    };
   }
   if (status.stale) {
     clearSession(status.paths);
     const orphan = (await isPortFree(status.session.port)) ? null : describePortOwner(status.session.port);
-    return { stopped: false, wasStale: true, orphan };
+    return {
+      stopped: false,
+      wasStale: true,
+      orphan,
+      restoredOptions: restorePinnedOptions(status.paths.optionsBackup),
+    };
   }
 
   const pgid = status.session.pgid;
@@ -786,8 +798,12 @@ export async function stop(
 
   await reapXvfb(status.session.xvfbPids ?? []);
 
+  // Only now. Minecraft writes its options out as it exits, so restoring any earlier restores
+  // something the dying client is about to overwrite.
+  const restoredOptions = restorePinnedOptions(status.paths.optionsBackup);
+
   clearSession(status.paths);
-  return { stopped: true, wasStale: false, orphan: null };
+  return { stopped: true, wasStale: false, orphan: null, restoredOptions };
 }
 
 /**

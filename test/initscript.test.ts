@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { bridgeProperties, DETERMINISM_OPTIONS, pinOptions, renderInitScript } from '../src/initscript.js';
+import { bridgeProperties, DETERMINISM_OPTIONS, pinOptions, renderInitScript, restorePinnedOptions } from '../src/initscript.js';
 
 const baseOptions = {
   minecraftVersion: '1.21.1',
@@ -206,5 +206,86 @@ describe('the toasts property', () => {
     expect(renderInitScript({ ...baseOptions, toasts: true }))
       .toContain('-Dclientdevbridge.toasts=true');
     expect(renderInitScript(baseOptions)).not.toContain('clientdevbridge.toasts');
+  });
+});
+
+/**
+ * Putting the developer's own options.txt back.
+ *
+ * Pinning rewrites eighteen keys of the same file a hand-run client reads — gui scale, but also
+ * FOV, brightness, master volume and the frame cap — so leaving it pinned means their next manual
+ * run is in a client this tool configured, with nothing pointing at why.
+ */
+describe('the pinned options.txt', () => {
+  let directory: string;
+
+  beforeEach(() => {
+    directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cdb-restore-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+
+  it('is restored to what it was', () => {
+    const runDir = path.join(directory, 'run');
+    const backup = path.join(directory, 'backup.json');
+    fs.mkdirSync(runDir, { recursive: true });
+    fs.writeFileSync(path.join(runDir, 'options.txt'), 'guiScale:3\nfov:1.0\nmine:keep\n');
+
+    pinOptions(runDir, backup);
+    expect(fs.readFileSync(path.join(runDir, 'options.txt'), 'utf8')).toContain('guiScale:2');
+
+    expect(restorePinnedOptions(backup)).toEqual([path.resolve(runDir, 'options.txt')]);
+    expect(fs.readFileSync(path.join(runDir, 'options.txt'), 'utf8')).toBe('guiScale:3\nfov:1.0\nmine:keep\n');
+    expect(fs.existsSync(backup)).toBe(false);
+  });
+
+  // Otherwise the second start would back up the already-pinned file, and the developer's real
+  // settings would be gone for good.
+  it('keeps the first backup when pinned twice', () => {
+    const runDir = path.join(directory, 'run');
+    const backup = path.join(directory, 'backup.json');
+    fs.mkdirSync(runDir, { recursive: true });
+    fs.writeFileSync(path.join(runDir, 'options.txt'), 'guiScale:4\n');
+
+    pinOptions(runDir, backup);
+    pinOptions(runDir, backup);
+
+    restorePinnedOptions(backup);
+    expect(fs.readFileSync(path.join(runDir, 'options.txt'), 'utf8')).toBe('guiScale:4\n');
+  });
+
+  // A run directory with no options.txt is left with none, rather than with ours.
+  it('removes the file when there was not one', () => {
+    const runDir = path.join(directory, 'fresh');
+    const backup = path.join(directory, 'backup.json');
+
+    pinOptions(runDir, backup);
+    expect(fs.existsSync(path.join(runDir, 'options.txt'))).toBe(true);
+
+    restorePinnedOptions(backup);
+    expect(fs.existsSync(path.join(runDir, 'options.txt'))).toBe(false);
+  });
+
+  it('restores every directory that was pinned, since the run dir can be guessed wrong', () => {
+    const guessed = path.join(directory, 'guessed');
+    const actual = path.join(directory, 'actual');
+    const backup = path.join(directory, 'backup.json');
+    fs.mkdirSync(guessed, { recursive: true });
+    fs.mkdirSync(actual, { recursive: true });
+    fs.writeFileSync(path.join(guessed, 'options.txt'), 'guiScale:5\n');
+    fs.writeFileSync(path.join(actual, 'options.txt'), 'guiScale:6\n');
+
+    pinOptions(guessed, backup);
+    pinOptions(actual, backup);
+    expect(restorePinnedOptions(backup)).toHaveLength(2);
+
+    expect(fs.readFileSync(path.join(guessed, 'options.txt'), 'utf8')).toBe('guiScale:5\n');
+    expect(fs.readFileSync(path.join(actual, 'options.txt'), 'utf8')).toBe('guiScale:6\n');
+  });
+
+  it('does nothing when there is no backup', () => {
+    expect(restorePinnedOptions(path.join(directory, 'absent.json'))).toEqual([]);
   });
 });

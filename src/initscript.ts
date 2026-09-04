@@ -228,14 +228,94 @@ export interface PinResult {
   readonly changed: readonly string[];
 }
 
+/** One file's contents as they were before the bridge pinned anything into it. */
+interface OptionsBackup {
+  readonly file: string;
+  /** False when there was no options.txt at all, so restoring means deleting ours. */
+  readonly existed: boolean;
+  readonly content: string;
+}
+
+function readBackups(backupFile: string): OptionsBackup[] {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(backupFile, 'utf8'));
+    return Array.isArray(parsed) ? (parsed as OptionsBackup[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Records a file's original contents, once.
+ *
+ * Once, because the second `start` would otherwise back up the already-pinned file and the real
+ * original would be lost for good. A backup surviving from a client that crashed is the true
+ * original and is kept.
+ */
+function rememberOptions(backupFile: string, optionsFile: string): void {
+  const backups = readBackups(backupFile);
+  if (backups.some((backup) => path.resolve(backup.file) === path.resolve(optionsFile))) {
+    return;
+  }
+  const existed = fs.existsSync(optionsFile);
+  backups.push({
+    file: path.resolve(optionsFile),
+    existed,
+    content: existed ? fs.readFileSync(optionsFile, 'utf8') : '',
+  });
+  fs.mkdirSync(path.dirname(backupFile), { recursive: true });
+  fs.writeFileSync(backupFile, JSON.stringify(backups, null, 2), 'utf8');
+}
+
+/** The files a restore is still owed for, so a report can mention them without performing it. */
+export function pendingOptionsRestores(backupFile: string): string[] {
+  return readBackups(backupFile).map((backup) => backup.file);
+}
+
+/**
+ * Puts every pinned `options.txt` back the way it was, and forgets the backups.
+ *
+ * Called once the client is gone, never before: Minecraft writes its options out on exit, so
+ * restoring while it still runs is restoring something it is about to overwrite.
+ *
+ * @return the files that were put back
+ */
+export function restorePinnedOptions(backupFile: string): string[] {
+  const backups = readBackups(backupFile);
+  const restored: string[] = [];
+  for (const backup of backups) {
+    try {
+      if (backup.existed) {
+        fs.writeFileSync(backup.file, backup.content, 'utf8');
+      } else if (fs.existsSync(backup.file)) {
+        fs.rmSync(backup.file);
+      }
+      restored.push(backup.file);
+    } catch {
+      // A run directory the developer has since deleted is not a reason to fail stopping a client.
+    }
+  }
+  if (backups.length > 0) {
+    fs.rmSync(backupFile, { force: true });
+  }
+  return restored;
+}
+
 /**
  * Writes the determinism options into the run directory's `options.txt`.
  *
  * Keys the caller did not ask about are preserved, so a hand-tuned dev options file survives.
  */
-export function pinOptions(runDir: string): PinResult {
+export function pinOptions(runDir: string, backupFile?: string): PinResult {
   const optionsFile = path.join(runDir, 'options.txt');
   fs.mkdirSync(runDir, { recursive: true });
+
+  // Before touching it: this is the same options.txt the developer's own client reads, and pinning
+  // rewrites eighteen keys of it -- gui scale, but also FOV, brightness, master volume and the frame
+  // cap. Leaving that behind means their next manual run is in a client someone else configured.
+  if (backupFile !== undefined) {
+    rememberOptions(backupFile, optionsFile);
+  }
 
   const existing = new Map<string, string>();
   const order: string[] = [];

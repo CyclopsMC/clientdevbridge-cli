@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Fixed
+* **`stop` restores your `options.txt`.** Pinning the determinism settings rewrites eighteen keys of
+  the same file a hand-launched client reads — GUI scale, but also FOV, brightness, master volume and
+  the frame cap — and nothing ever put them back, so running the client yourself afterwards left you
+  in a client this tool had configured, with nothing pointing at why. The original is saved before
+  the first change and restored once the client has exited (never before: Minecraft writes its
+  options out as it quits). A client that crashed or was closed by hand is covered too — the next
+  `stop` restores it, and `status` says the file is still pinned until then.
+
 <a name="v0.6.0"></a>
 ## [v0.6.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.5.0...v0.6.0) - 2026-09-02
 

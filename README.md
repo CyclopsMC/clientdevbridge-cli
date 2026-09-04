@@ -120,6 +120,11 @@ Determinism is not luck: `start` pins the GUI scale, disables clouds, particles,
 view bobbing and vsync, fixes the window size, and the test world is a fixed-seed superflat with
 the daylight cycle and weather off. `world-reset` puts the player at a known position every time.
 
+Those settings are written into your project's `options.txt` — the same file a client you launch
+yourself reads — so **`stop` puts the file back the way it was**, and says so. A client closed by
+hand never reaches `stop`, and `status` then tells you the file is still pinned and that `stop` will
+restore it. `start --no-pin-options` skips the whole business.
+
 **Toast popups are suppressed** for the same reason — an advancement or recipe toast fades over
 several seconds, so a screenshot taken near one is not reproducible. `start --toasts` turns them
 back on, for when the toast is the thing you are testing.

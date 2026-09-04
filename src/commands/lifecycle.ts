@@ -14,6 +14,7 @@ import {
   tailFile,
 } from '../launcher.js';
 import { formatDuration, keyValues, line, printJson } from '../output.js';
+import { pendingOptionsRestores } from '../initscript.js';
 import { readSession } from '../session.js';
 import { BridgeClient } from '../protocol/client.js';
 import { detectProject, type Loader } from '../detect.js';
@@ -128,6 +129,12 @@ export async function runStop(global: GlobalOptions, options: { port?: string | 
   } else {
     line('No client was running.');
   }
+  // Said out loud, because the file belongs to the developer and the tool having touched it at all
+  // is the surprising part: a client run by hand afterwards would otherwise be at gui scale 2, FOV
+  // 0 and muted, with nothing to connect that to this tool.
+  for (const file of result.restoredOptions) {
+    line(`Restored your ${file}.`);
+  }
   if (result.orphan !== null) {
     line('');
     for (const explanation of await describeOccupiedPort(port, result.orphan, global.project)) {
@@ -184,6 +191,13 @@ export async function runStatus(global: GlobalOptions): Promise<void> {
       return;
     }
     line(`Not running (${reason}) in ${status.paths.projectDir}.`);
+    // The one thing that outlives a client: the determinism options written into the developer's
+    // own options.txt. `stop` puts them back, but a client closed by hand never reached it, and a
+    // hand-run client afterwards would be at gui scale 2 with no hint as to why.
+    for (const file of pendingOptionsRestores(status.paths.optionsBackup)) {
+      line(`Your ${file} is still pinned to the determinism settings. `
+        + 'Run `clientdevbridge stop` to put it back.');
+    }
     if (orphan !== null) {
       line('');
       for (const explanation of await describeOccupiedPort(port, orphan, status.paths.projectDir)) {

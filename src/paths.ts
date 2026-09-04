@@ -15,6 +15,7 @@ export interface BridgePaths {
   readonly diffs: string;
   readonly initScript: string;
   readonly hotswapState: string;
+  readonly optionsBackup: string;
 }
 
 export function resolvePaths(projectDir: string): BridgePaths {
@@ -30,6 +31,7 @@ export function resolvePaths(projectDir: string): BridgePaths {
     diffs: path.join(root, 'diffs'),
     initScript: path.join(root, 'init.gradle'),
     hotswapState: path.join(root, 'hotswap'),
+    optionsBackup: path.join(root, 'options-backup.json'),
   };
 }
 
