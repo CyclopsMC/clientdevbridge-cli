@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.7.0"></a>
+## [v0.7.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.6.0...v0.7.0) - 2026-09-05
 
 ### Added
 * **Two clients at once, with nothing to configure.** `start` used to insist on port 25599 and
