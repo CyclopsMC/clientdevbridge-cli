@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Fixed
+* **`doctor` no longer passes a project whose dependencies cannot resolve.** `gradle dependencies`
+  marks an unresolvable module `FAILED` and still exits 0, and the check read only the exit status —
+  so it reported "the project resolves its compile classpath" and the `start` after it died on
+  `Username must not be null!`, which is the exact sequence the check was added to prevent. It now
+  reads the annotations and names the modules that will not resolve.
+* `break` reports only the drops the break caused, and `tooltip` says when a point has nothing it
+  can read rather than claiming there is no tooltip (mod-side; needs a matching mod build).
+
 <a name="v0.7.0"></a>
 ## [v0.7.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.6.0...v0.7.0) - 2026-09-05
 

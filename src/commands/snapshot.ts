@@ -172,13 +172,22 @@ export async function runTooltip(
       throw new CliError('tooltip needs either --at x,y or --widget <text-or-path>.', 1);
     }
 
-    const result = await client.call<{ lines: string[]; source: string }>('screen.tooltip', point);
+    const result = await client.call<{ lines: string[]; source: string; note?: string }>(
+      'screen.tooltip',
+      point,
+    );
     if (global.json) {
       printJson(result);
       return;
     }
     if (result.lines.length === 0) {
-      line(`No tooltip at ${point.x},${point.y} (source: ${result.source}).`);
+      // "No tooltip" is only true for two of the three ways to get here. The third is that nothing
+      // at this point is modelled as a widget -- and a mod drawing its own tooltip in render()
+      // looks exactly like that, so saying there is none contradicts a screenshot of the same spot.
+      line(`No tooltip readable at ${point.x},${point.y} (${result.source}).`);
+      if (result.note !== undefined) {
+        line(result.note);
+      }
       return;
     }
     for (const entry of result.lines) {

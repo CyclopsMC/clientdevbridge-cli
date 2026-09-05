@@ -292,6 +292,27 @@ function resolveDependencies(
         + 'take the first long wait for a hang.',
     };
   }
+  // Before trusting the exit code: `dependencies` reports an unresolvable module by *annotating*
+  // it and still exits 0. Reading only the status made this check pass on exactly the failure it
+  // was written to catch -- green light, then a `start` that dies on "Username must not be null!".
+  const unresolved = unresolvedModules(output);
+  if (unresolved.length > 0) {
+    // The tree says which modules failed but never why: it prints no repository and no error. So
+    // the fix names the usual cause without asserting it, and says how to get the real one --
+    // including that the command it points at also exits 0, which is the trap this check fell into.
+    return {
+      name: 'dependencies',
+      ok: false,
+      detail: `${unresolved.length} module(s) will not resolve: ${unresolved.slice(0, 3).join(', ')}`
+        + (unresolved.length > 3 ? `, and ${unresolved.length - 3} more` : ''),
+      fix: 'Most often a Maven that needs credentials this environment does not have: for CyclopsMC '
+        + 'packages set GITHUB_USER and a GITHUB_TOKEN with read:packages, or build the missing '
+        + 'dependencies from source with `./gradlew publishToMavenLocal` in their repositories. For '
+        + `the actual reason run \`./gradlew ${task} --configuration compileClasspath\` -- it exits 0 `
+        + 'either way, so read the FAILED lines rather than the status.',
+    };
+  }
+
   if (result.status === 0) {
     return { name: 'dependencies', ok: true, detail: 'the project resolves its compile classpath', fix: '' };
   }
@@ -324,6 +345,23 @@ function resolveDependencies(
         + 'See docs/cloud-setup.md in the mod repository.'
       : `Run \`./gradlew ${task} --configuration compileClasspath\` to see the whole failure.`,
   };
+}
+
+/**
+ * The modules Gradle marked unresolvable in a dependency tree.
+ *
+ * It prints them as `+--- group:artifact:version FAILED` and then exits 0, so the annotation is the
+ * only evidence there is.
+ */
+export function unresolvedModules(output: string): string[] {
+  const failed = new Set<string>();
+  for (const line of output.split('\n')) {
+    const match = /^[\s|+\\-]*([\w.-]+:[\w.-]+:[^\s]+)\s+FAILED\s*$/.exec(line);
+    if (match !== null && match[1] !== undefined) {
+      failed.add(match[1]);
+    }
+  }
+  return [...failed];
 }
 
 /**

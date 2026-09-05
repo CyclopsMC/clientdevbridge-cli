@@ -167,6 +167,12 @@ the world — `--at` is not needed there. `hold <slot>` is the direct way to the
 Input goes through the game's own handlers, so a mod's click logic runs exactly as it would for a
 player. Off-screen coordinates are refused rather than silently doing nothing.
 
+`tooltip` reads the same thing, and has the same limit: it answers for a slot or a widget, and says
+`unmodelled` when the point has neither — which is also what a tooltip a mod paints in its own
+`render()` looks like, since that registers nothing to read. It tells you which case you are in
+rather than reporting "no tooltip" for both; when it says `unmodelled`, a screenshot with
+`--mouse x,y` is how you see whether one is actually drawn.
+
 `--widget` only reaches what the game models as a widget. Vanilla buttons, text boxes and slots are
 widgets; a field a mod draws itself in `render` is not, and `snapshot` cannot show you what was
 never there. Those need `--at x,y` with coordinates read off a screenshot, against the GUI-space
