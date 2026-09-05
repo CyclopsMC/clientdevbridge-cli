@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Fixed
+* **The client comes up the same size on a Retina Mac as it does headless.** `--width`/`--height`
+  reach Minecraft as a window size, and a window size is in screen coordinates: on a display that
+  scales windows — every Retina Mac, and Windows above 100% — there are more framebuffer pixels
+  behind one of those than one. Everything past the launch counts in framebuffer pixels, so asking
+  for 854x480 on such a display gave a client whose screenshots were 1708x960 and whose GUI space
+  was 854x480 rather than 427x240: every documented coordinate landed somewhere else, and no golden
+  image, region or snapshot position from a headless run meant the same thing locally. `start` now
+  checks what the client actually came up with and resizes it to what was asked for, saying so when
+  it does; the conversion itself is in the mod, so a mod build older than it gets a warning naming
+  the version rather than a silent difference. Nothing is said, or sent, on an unscaled display.
+
 * **`stop` restores your `options.txt`.** Pinning the determinism settings rewrites eighteen keys of
   the same file a hand-launched client reads — GUI scale, but also FOV, brightness, master volume and
   the frame cap — and nothing ever put them back, so running the client yourself afterwards left you

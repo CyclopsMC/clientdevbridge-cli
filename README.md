@@ -120,6 +120,14 @@ Determinism is not luck: `start` pins the GUI scale, disables clouds, particles,
 view bobbing and vsync, fixes the window size, and the test world is a fixed-seed superflat with
 the daylight cycle and weather off. `world-reset` puts the player at a known position every time.
 
+`--width` and `--height` are **framebuffer pixels** — what a screenshot is measured in, and what
+GUI space is once the scale is divided out. They are not the screen coordinates a window manager
+sizes a window in: a display that scales windows, which is every Retina Mac and Windows above 100%,
+puts more than one pixel behind each of those. `start` compares the two and resizes the client when
+they disagree, so the default 854x480 is 854x480 everywhere and a coordinate means the same thing on
+your machine as on a headless runner. It says so when it has to do that, and warns instead when the
+mod build is too old to be told a size in pixels.
+
 Those settings are written into your project's `options.txt` — the same file a client you launch
 yourself reads — so **`stop` puts the file back the way it was**, and says so. A client closed by
 hand never reaches `stop`, and `status` then tells you the file is still pinned and that `stop` will

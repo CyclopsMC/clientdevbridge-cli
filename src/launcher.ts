@@ -431,7 +431,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   };
   writeSession(paths, session);
 
-  const { hello, gameDir } = await waitForHandshake(
+  const { hello, gameDir, pixels } = await waitForHandshake(
     session,
     paths.gradleLog,
     options.timeoutMs,
@@ -452,6 +452,9 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
         'restart to apply them to a running client.',
     );
   }
+
+  await matchRequestedPixelSize(started, options.width, options.height, pixels, options.onProgress);
+
   return { session: started, hello };
 }
 
@@ -526,7 +529,7 @@ async function waitForHandshake(
   gradleLog: string,
   timeoutMs: number,
   onProgress?: (line: string) => void,
-): Promise<{ hello: unknown; gameDir: string | null }> {
+): Promise<{ hello: unknown; gameDir: string | null; pixels: PixelSize | null }> {
   const deadline = Date.now() + timeoutMs;
   let lastReport = 0;
   // What the loop last observed, so that giving up can say which of the several quite different
@@ -559,7 +562,11 @@ async function waitForHandshake(
         const reported = status['gameDir'];
         client.close();
         if (ready) {
-          return { hello, gameDir: typeof reported === 'string' ? reported : null };
+          return {
+            hello,
+            gameDir: typeof reported === 'string' ? reported : null,
+            pixels: readPixelSize(status),
+          };
         }
         lastObservation =
           `the client answered but was not ready yet (screen ${String(status['screenClass'] ?? 'none')}, ` +
@@ -608,6 +615,92 @@ async function waitForHandshake(
       ? `A thread dump was appended to ${gradleLog}. The stack of "Render thread" is what stalled; ` +
         'increase --timeout only if it shows real work in progress.'
       : `Increase --timeout, or read the full log at ${gradleLog}.`,
+  );
+}
+
+export interface PixelSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** The framebuffer size out of any result carrying the standard metrics block. */
+function readPixelSize(metrics: Record<string, unknown>): PixelSize | null {
+  const width = Number(metrics['pixelWidth']);
+  const height = Number(metrics['pixelHeight']);
+  return Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0
+    ? { width, height }
+    : null;
+}
+
+/**
+ * Makes the framebuffer the size that was asked for, on a display that scales windows.
+ *
+ * Minecraft's `--width`/`--height` are screen coordinates, which is also the only thing a window
+ * manager deals in -- and on a Retina Mac, or Windows at 125%, there are more framebuffer pixels
+ * behind a screen coordinate than one. Everything past the launch is in framebuffer pixels:
+ * screenshots are, pixel space is, and GUI space is them divided by the scale. So a client left as
+ * it launched renders at 854x480 on a headless runner and at 1708x960 on the developer's own
+ * machine, and with it a GUI space, screenshots, regions and golden images that are all twice the
+ * size, from the same command. That is the whole difference, and it is invisible until a
+ * coordinate from the documentation lands somewhere else.
+ *
+ * `window.resize` takes framebuffer pixels and works out the window size itself, so the correction
+ * is to ask again for the size that was already requested. Nothing is said, or sent, when the
+ * client came up at the right size, which is every unscaled display and every headless run.
+ */
+export async function matchRequestedPixelSize(
+  session: Session,
+  width: number,
+  height: number,
+  observed: PixelSize | null,
+  onProgress?: (line: string) => void,
+): Promise<void> {
+  if (observed === null || (observed.width === width && observed.height === height)) {
+    return;
+  }
+
+  let reached: PixelSize | null = null;
+  let failure: string | null = null;
+  try {
+    const client = await BridgeClient.connect({ port: session.port, timeoutMs: 10_000 });
+    try {
+      reached = readPixelSize(await client.call<Record<string, unknown>>('window.resize', { width, height }, 30_000));
+    } finally {
+      client.close();
+    }
+  } catch (error) {
+    failure = (error as Error).message;
+  }
+
+  if (reached !== null && reached.width === width && reached.height === height) {
+    onProgress?.(
+      `This display scales windows, so the client came up with a ${observed.width}x${observed.height} ` +
+        `framebuffer for the ${width}x${height} that was asked for. Resized it to ${width}x${height}, ` +
+        'so screenshots and GUI coordinates are the same here as anywhere else.',
+    );
+    return;
+  }
+
+  // Worth saying loudly rather than leaving to be discovered by a golden image that will not match
+  // and cannot say why. The two ways this ends up here are different problems with different fixes,
+  // so they get different sentences: a resize that moved the framebuffer and missed is a display
+  // scaling by a fraction, where no window size maps onto the request exactly; a resize that
+  // changed nothing is a mod build that predates the conversion and reads the size as a window.
+  const still = reached ?? observed;
+  const moved = reached !== null && (reached.width !== observed.width || reached.height !== observed.height);
+  const consequence =
+    'Screenshots, regions and GUI coordinates are in framebuffer pixels, so none of them means the ' +
+    'same here as on an unscaled display, and a golden image recorded on one will not match.';
+  onProgress?.(
+    moved
+      ? `This display scales windows by a fraction: the closest framebuffer to the ${width}x${height} ` +
+          `asked for is ${still.width}x${still.height}. ${consequence} Ask for a size that divides ` +
+          'evenly by the scale, with --width and --height.'
+      : `This display scales windows: the client's framebuffer is ${still.width}x${still.height}, not ` +
+          `the ${width}x${height} that was asked for, and resizing it did not take` +
+          `${failure === null ? '' : ` (${failure})`}. ${consequence} Update the ClientDevBridge mod ` +
+          `build, which is what converts a size in pixels into a window (this run used ` +
+          `${session.bridgeVersion}).`,
   );
 }
 
