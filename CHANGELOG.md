@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.7.1"></a>
+## [v0.7.1](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.7.0...v0.7.1) - 2026-09-05
 
 ### Fixed
 * **`doctor` no longer passes a project whose dependencies cannot resolve.** `gradle dependencies`
