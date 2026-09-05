@@ -4,7 +4,34 @@ All notable changes to this project will be documented in this file.
 <a name="Unreleased"></a>
 ## Unreleased
 
+### Added
+* **Two clients at once, with nothing to configure.** `start` used to insist on port 25599 and
+  refuse when it was taken, so a second checkout meant passing `--port` — and then remembering not
+  to pass it to anything else, because every other command reads the port back out of
+  `session.json`. It now takes the first free port from 25599 upwards and says so when that is not
+  the default. `--jdwp-port` accepts no number, meaning the same thing; both docs named 5005, so
+  two worktrees following them collided on a port whose failure is a JVM that will not start,
+  minutes into a Gradle build.
+
+  A port is claimed from the moment it is chosen rather than the moment it is bound, because the
+  gap between the two is the whole Gradle build: two launches started inside that window both saw
+  an idle port and both took it. A port named explicitly is still that port or an error.
+
 ### Fixed
+* **A launch that timed out dumped every client's threads, not its own.** The thread dump taken
+  before giving up matched every JVM on the machine carrying `-Dclientdevbridge.enabled=true`, so
+  one agent's timeout buried every other agent's game log under a stack dump from a run that had
+  nothing to do with it. It matches on this launch's own port now.
+
+* **`stop` reports an orphaned client on the port that client was actually on**, rather than on
+  whatever `--port` defaulted to. Invisible while every client was on 25599.
+
+* **An X server started by a concurrent launch is no longer adopted and then killed.** Which Xvfb
+  belongs to a launch was decided by which ones appeared while it was starting, and with two
+  launches overlapping — a minute or two of Gradle each — that is both of them. Attribution is by
+  process group now, falling back to the old answer where the group cannot be read: a leaked Xvfb
+  holds its display lock and kills the next run that lands on it.
+
 * **The client comes up the same size on a Retina Mac as it does headless.** `--width`/`--height`
   reach Minecraft as a window size, and a window size is in screen coordinates: on a display that
   scales windows — every Retina Mac, and Windows above 100% — there are more framebuffer pixels

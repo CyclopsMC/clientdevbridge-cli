@@ -213,7 +213,8 @@ clientdevbridge logs --lines 20 --level warn
 ```
 
 `hotswap` redefines method bodies through JDWP, so the client has to have been started with a
-debug port: `clientdevbridge start --jdwp-port 5005`. Adding or removing a field, a method or a
+debug port: `clientdevbridge start --jdwp-port 5005`, or `--jdwp-port` with no number to take a
+free one. Adding or removing a field, a method or a
 superclass cannot be redefined by any JVM — `hotswap` says so and points at `restart`, rather than
 reporting success and leaving you looking at stale code. `--restart-if-needed` makes that call for
 you and restarts with the options the running client was launched with, so you do not have to know
@@ -437,6 +438,25 @@ reclaimed cloud VM, a crash, a reboot — and says "not running" cleanly instead
 not get committed while `golden/` still can. It says so when it does it, and it is the only file
 outside `.clientdevbridge/` this tool ever writes. `start --no-gitignore` skips it, for a checkout
 that has to stay pristine — a CI run, or a repository you only borrowed.
+
+## More than one at a time
+
+Nothing has to be configured to run two clients at once — an agent per worktree, or a second
+client to compare a change against. `start` takes the first free port from 25599 upwards and
+records it in that project's `session.json`, which is where every other command reads it from, so
+no command ever has to be told which client it means beyond `--project`:
+
+```bash
+clientdevbridge --project ../feature-branch start   # port 25599
+clientdevbridge --project ../main start             # "Port 25599 is taken, so this client is on 25600."
+clientdevbridge --project ../main screenshot        # goes to 25600, without being told
+```
+
+A port is held from the moment it is chosen, not from the moment it is bound. That gap is a minute
+or two of Gradle build, and two launches started anywhere inside it would otherwise both pick the
+same free port and only find out at the end. `--jdwp-port` with no number behaves the same way; a
+port given explicitly is still that port or an error, since something on the other end usually
+expects it there.
 
 ## Headless
 

@@ -26,7 +26,8 @@ export interface StartCommandOptions {
   readonly clientdevbridgeVersion?: string | undefined;
   readonly world?: string | undefined;
   readonly headed: boolean;
-  readonly port: string;
+  /** Absent unless the caller named one, which is what makes taking the next free port the default. */
+  readonly port?: string | undefined;
   readonly timeout: string;
   readonly gradleArgs?: string | undefined;
   readonly width: string;
@@ -35,7 +36,8 @@ export interface StartCommandOptions {
   readonly pinOptions: boolean;
   readonly gitignore: boolean;
   readonly toasts: boolean;
-  readonly jdwpPort?: string | undefined;
+  /** A port number, or true for `--jdwp-port` with no number, which means "any free one". */
+  readonly jdwpPort?: string | boolean | undefined;
 }
 
 export async function runStart(global: GlobalOptions, options: StartCommandOptions): Promise<void> {
@@ -63,7 +65,9 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     bridgeVersion: options.clientdevbridgeVersion,
     world: options.world,
     headed: options.headed,
-    port: Number(options.port),
+    // Null rather than the default port: an unasked-for port is the first free one, so that a
+    // second checkout can be started without being told about the first.
+    port: options.port === undefined ? null : Number(options.port),
     timeoutMs,
     gradleArgs: options.gradleArgs === undefined ? [] : options.gradleArgs.split(' ').filter((a) => a.length > 0),
     width: Number(options.width),
@@ -72,7 +76,11 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     toasts: options.toasts,
     pinOptions: options.pinOptions,
     gitignore: options.gitignore,
-    jdwpPort: options.jdwpPort === undefined ? null : Number(options.jdwpPort),
+    jdwpPort: options.jdwpPort === undefined
+      ? null
+      : options.jdwpPort === true
+        ? 'auto'
+        : Number(options.jdwpPort),
     onProgress: global.quiet ? undefined : (message) => line(message),
   });
 
@@ -137,7 +145,9 @@ export async function runStop(global: GlobalOptions, options: { port?: string | 
   }
   if (result.orphan !== null) {
     line('');
-    for (const explanation of await describeOccupiedPort(port, result.orphan, global.project)) {
+    // result.port, not the one asked for: when a session was on record, the port it names is the
+    // client's own, and --port only decides where to look when there is no session left to ask.
+    for (const explanation of await describeOccupiedPort(result.port, result.orphan, global.project)) {
       line(explanation);
     }
     process.exitCode = 2;

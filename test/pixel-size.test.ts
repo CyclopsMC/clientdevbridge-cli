@@ -93,7 +93,7 @@ describe('matching the framebuffer to the size that was asked for', () => {
   it('says nothing and sends nothing when the client came up at the requested size', async () => {
     client = await startFakeClient({ width: 854, height: 480 });
     const said: string[] = [];
-    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 854, height: 480 }, (l) => said.push(l));
+    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 854, height: 480 }, '1.0.0-154', (l) => said.push(l));
     expect(said).toEqual([]);
     expect(client.calls).toEqual([]);
   });
@@ -101,7 +101,7 @@ describe('matching the framebuffer to the size that was asked for', () => {
   it('resizes a client whose display scaled the window, and says what it did', async () => {
     client = await startFakeClient({ width: 854, height: 480 });
     const said: string[] = [];
-    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 1708, height: 960 }, (l) => said.push(l));
+    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 1708, height: 960 }, '1.0.0-154', (l) => said.push(l));
     expect(client.calls).toEqual([{ method: 'window.resize', params: { width: 854, height: 480 } }]);
     expect(said.join('\n')).toContain('1708x960');
     expect(said.join('\n')).toContain('Resized it to 854x480');
@@ -113,7 +113,7 @@ describe('matching the framebuffer to the size that was asked for', () => {
   it('warns, naming the mod build, when the resize does not take', async () => {
     client = await startFakeClient({ width: 1708, height: 960 });
     const said: string[] = [];
-    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 1708, height: 960 }, (l) => said.push(l));
+    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 1708, height: 960 }, '1.0.0-154', (l) => said.push(l));
     const message = said.join('\n');
     expect(message).toContain('1708x960');
     expect(message).toContain('did not take');
@@ -125,7 +125,7 @@ describe('matching the framebuffer to the size that was asked for', () => {
   it('says the framebuffer settled nearby when the scale is fractional', async () => {
     client = await startFakeClient({ width: 853, height: 480 });
     const said: string[] = [];
-    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 1281, height: 720 }, (l) => said.push(l));
+    await matchRequestedPixelSize(session(client.port), 854, 480, { width: 1281, height: 720 }, '1.0.0-154', (l) => said.push(l));
     const message = said.join('\n');
     expect(message).toContain('closest framebuffer');
     expect(message).toContain('853x480');
@@ -135,7 +135,7 @@ describe('matching the framebuffer to the size that was asked for', () => {
   it('warns rather than failing the launch when the client cannot be reached', async () => {
     const said: string[] = [];
     // Port 1 is privileged and never has a bridge on it, so connecting is a certain failure.
-    await matchRequestedPixelSize(session(1), 854, 480, { width: 1708, height: 960 }, (l) => said.push(l));
+    await matchRequestedPixelSize(session(1), 854, 480, { width: 1708, height: 960 }, '1.0.0-154', (l) => said.push(l));
     expect(said.join('\n')).toContain('did not take');
   });
 });

@@ -10,8 +10,9 @@ import { detectProject, projectPathOf, type Loader } from './detect.js';
 import { bridgeProperties, pinOptions, renderInitScript, restorePinnedOptions } from './initscript.js';
 import { ensureDirectories, ensureGitignore, resolvePaths } from './paths.js';
 import { clearSession, isProcessAlive, readSession, type Session, writeSession } from './session.js';
+import { claimOn, claimPort, type PortClaim } from './ports.js';
 import { BridgeClient } from './protocol/client.js';
-import { planDisplay, xvfbPids } from './xvfb.js';
+import { planDisplay, xvfbPids, xvfbPidsOfGroup } from './xvfb.js';
 import { artifactId, findLine, GROUP, unsupportedMessage } from './artifacts.js';
 
 export const DEFAULT_PORT = 25599;
@@ -55,7 +56,8 @@ export interface StartOptions {
   readonly bridgeVersion?: string | undefined;
   readonly world?: string | undefined;
   readonly headed: boolean;
-  readonly port: number;
+  /** The port to use, or null to take the first free one from {@link DEFAULT_PORT} upwards. */
+  readonly port: number | null;
   readonly timeoutMs: number;
   readonly gradleArgs: readonly string[];
   readonly width: number;
@@ -64,7 +66,8 @@ export interface StartOptions {
   readonly toasts: boolean;
   readonly pinOptions: boolean;
   readonly gitignore: boolean;
-  readonly jdwpPort: number | null;
+  /** A port, 'auto' to take a free one, or null for no debug port at all. */
+  readonly jdwpPort: number | 'auto' | null;
   readonly onProgress?: (line: string) => void;
 }
 
@@ -237,6 +240,146 @@ function isPortFreeOn(host: string, port: number): Promise<boolean> {
   });
 }
 
+/** How far past the default to look for a free port before giving up. */
+export const PORT_SCAN_RANGE = 64;
+
+/**
+ * Decides which port this launch will use, and holds it against a concurrent one.
+ *
+ * Two checkouts driven at once is the ordinary case -- an agent per worktree, a second client to
+ * compare against -- and it used to end at the port: the second `start` refused, and the answer
+ * was to pass `--port` and then remember to pass it to nothing else, because every other command
+ * reads the port back out of the session file. So a launch that was not told a port takes the
+ * first free one instead of insisting on the default.
+ *
+ * "Free" has to mean more than "nothing is listening". A client takes a minute or two to get as
+ * far as binding, so two launches started anywhere within that window both see an idle port and
+ * both take it; the loser finds out when its client cannot bind, several minutes later, with the
+ * failure nowhere near the cause. The claim closes that window -- see {@link claimPort}.
+ *
+ * A port given explicitly is a request rather than a suggestion, so it is that port or an error:
+ * moving quietly to another one would break the caller who passed it precisely because something
+ * on the other end expects it there.
+ */
+export async function reservePort(requested: number | null, projectDir: string): Promise<PortClaim> {
+  if (requested !== null) {
+    const claim = claimPort(requested, projectDir);
+    if (claim !== null && (await isPortFree(requested))) {
+      return claim;
+    }
+    claim?.release();
+    throw new CliError(
+      `Port ${requested} on localhost is already in use, so the client could not claim it.`,
+      2,
+      describePortHolder(requested, projectDir, await inspectPort(requested)),
+    );
+  }
+
+  for (let port = DEFAULT_PORT; port < DEFAULT_PORT + PORT_SCAN_RANGE; port += 1) {
+    const claim = claimPort(port, projectDir);
+    if (claim === null) {
+      continue;
+    }
+    if (await isPortFree(port)) {
+      return claim;
+    }
+    claim.release();
+  }
+
+  throw new CliError(
+    `Every port from ${DEFAULT_PORT} to ${DEFAULT_PORT + PORT_SCAN_RANGE - 1} is in use, so there ` +
+      'is nowhere to put this client.',
+    2,
+    "Stop a client you are no longer using ('clientdevbridge --project <dir> stop'), or pass " +
+      '--port <other> to name one outside that range.',
+  );
+}
+
+/** Where an unnumbered `--jdwp-port` starts looking. The number both docs have always named. */
+export const DEFAULT_JDWP_PORT = 5005;
+
+/**
+ * The debug port, held the same way and for the same reason as the bridge port.
+ *
+ * Both the README and the skill say `--jdwp-port 5005`, so two worktrees driven at once follow the
+ * documentation into the same port -- and a JDWP port that cannot bind does not fail politely: the
+ * JVM refuses to start, minutes into a Gradle build, with the reason in a log nobody is reading
+ * yet. `--jdwp-port` with no number takes a free one instead, and a number that was given is
+ * checked here rather than discovered there.
+ */
+export async function reserveJdwpPort(
+  requested: number | 'auto',
+  projectDir: string,
+): Promise<PortClaim> {
+  if (requested !== 'auto') {
+    const claim = claimPort(requested, projectDir);
+    if (claim !== null && (await isPortFree(requested))) {
+      return claim;
+    }
+    claim?.release();
+    const starting = claimOn(requested);
+    throw new CliError(
+      `Debug port ${requested} is already in use, so the client could not open one.`,
+      2,
+      starting === null
+        ? `Pass --jdwp-port <other>, or --jdwp-port on its own to take the first free port from ${DEFAULT_JDWP_PORT}.`
+        : `A client starting for ${starting.projectDir} has it. Pass --jdwp-port on its own to ` +
+          'take the first free port instead.',
+    );
+  }
+
+  for (let port = DEFAULT_JDWP_PORT; port < DEFAULT_JDWP_PORT + PORT_SCAN_RANGE; port += 1) {
+    const claim = claimPort(port, projectDir);
+    if (claim === null) {
+      continue;
+    }
+    if (await isPortFree(port)) {
+      return claim;
+    }
+    claim.release();
+  }
+  throw new CliError(
+    `Every debug port from ${DEFAULT_JDWP_PORT} to ${DEFAULT_JDWP_PORT + PORT_SCAN_RANGE - 1} is in use.`,
+    2,
+    'Pass --jdwp-port <other> to name one outside that range.',
+  );
+}
+
+/** What holds a port: a bridge that answers, a process that does not, or a launch on its way. */
+async function inspectPort(port: number): Promise<{
+  owner: string | null;
+  bridge: { projectDir: string | null; mcVersion: string; loader: string } | null;
+  starting: { pid: number; projectDir: string } | null;
+}> {
+  return {
+    owner: describePortOwner(port),
+    bridge: await describeBridgeOnPort(port),
+    starting: claimOn(port),
+  };
+}
+
+function describePortHolder(
+  port: number,
+  thisProject: string,
+  held: {
+    owner: string | null;
+    bridge: { projectDir: string | null; mcVersion: string; loader: string } | null;
+    starting: { pid: number; projectDir: string } | null;
+  },
+): string {
+  // A launch still booting holds nothing a port scan can see, so it has to be said separately:
+  // "nothing is listening on 25599" and "25599 is taken" are both true for a minute or two, and
+  // being told only the first is what sends someone back to try the same thing again.
+  if (held.bridge === null && held.owner === null && held.starting !== null) {
+    return (
+      `A client is still starting on it, launched for:\n      ${held.starting.projectDir}\n` +
+      `    Wait for it, or leave off --port and this launch will take the next free one.`
+    );
+  }
+  return `${hintForOccupiedPort(port, held.owner, held.bridge, thisProject)}\n` +
+    '    Leaving off --port takes the next free port instead.';
+}
+
 /**
  * Launches a client and waits until it answers the handshake.
  *
@@ -264,18 +407,20 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
 
   const bridgeVersion = options.bridgeVersion ?? resolveBridgeVersion(project.minecraftVersion, project.loader);
 
-  if (!(await isPortFree(options.port))) {
-    // Whose client it is decides the advice. A ClientDevBridge client answers with the project it
-    // was launched for, and the common case by far is another checkout of the developer's own --
-    // telling them to kill it is confident, wrong, and worse than saying nothing. Even for a
-    // client of this project, `kill <pid>` names the java process, whose process group is not the
-    // xvfb-run one the session tracks, so it leaves the virtual display behind; `stop` does not.
-    const owner = describePortOwner(options.port);
-    const bridge = await describeBridgeOnPort(options.port);
-    throw new CliError(
-      `Port ${options.port} on localhost is already in use, so the client could not claim it.`,
-      2,
-      hintForOccupiedPort(options.port, owner, bridge, project.projectDir),
+  const claim = await reservePort(options.port, project.projectDir);
+  const port = claim.port;
+  const jdwpClaim = options.jdwpPort === null
+    ? null
+    : await reserveJdwpPort(options.jdwpPort, project.projectDir);
+  const jdwpPort = jdwpClaim === null ? null : jdwpClaim.port;
+  if (options.port === null && port !== DEFAULT_PORT) {
+    // Worth saying: the port is not what the documentation says it is for this client, and someone
+    // reading a log later needs to know which of two running clients they are looking at. What
+    // they do not have to do is pass it to anything -- every other command reads it back out of
+    // the session file.
+    options.onProgress?.(
+      `Port ${DEFAULT_PORT} is taken, so this client is on ${port}. Every other command reads the ` +
+        'port from the session file, so nothing else needs to be told.',
     );
   }
 
@@ -302,14 +447,14 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       minecraftVersion: project.minecraftVersion,
       loader: project.loader,
       bridgeVersion,
-      port: options.port,
+      port,
       evalEnabled: options.evalEnabled,
       toasts: options.toasts,
       world: options.world ?? null,
       username: DEFAULT_USERNAME,
       width: options.width,
       height: options.height,
-      jdwpPort: options.jdwpPort,
+      jdwpPort,
       projectDir: project.projectDir,
       // The Gradle path of the module being launched: ':loader-neoforge:runClient' -> ':loader-neoforge',
       // and ':runClient' -> ':' for a single-module project.
@@ -387,7 +532,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       JAVA_TOOL_OPTIONS: [
         process.env['JAVA_TOOL_OPTIONS'],
         ...bridgeProperties({
-          port: options.port,
+          port,
           projectDir: project.projectDir,
           evalEnabled: options.evalEnabled,
           toasts: options.toasts,
@@ -405,7 +550,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
 
   const session: Session = {
     version: 1,
-    port: options.port,
+    port,
     pid: child.pid,
     pgid: child.pid,
     loader: project.loader,
@@ -417,7 +562,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     world: options.world ?? null,
     headed: options.headed,
     display: display.description,
-    jdwpPort: options.jdwpPort,
+    jdwpPort,
     xvfbPids: [],
     launch: {
       width: options.width,
@@ -439,7 +584,11 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   );
   // Now, not right after the spawn: Gradle takes most of a minute to get as far as launching the
   // client, and xvfb-run only starts a server when it does. A client that has answered has one.
-  const started = { ...session, xvfbPids: xvfbPids().filter((pid) => !xvfbBefore.has(pid)) };
+  // Narrowed to this launch's own process group, because a second launch running alongside starts
+  // its server inside the same window and would otherwise be adopted -- and then killed by a
+  // `stop` that had no business touching it.
+  const appeared = xvfbPids().filter((pid) => !xvfbBefore.has(pid));
+  const started = { ...session, xvfbPids: xvfbPidsOfGroup(appeared, session.pgid) };
   writeSession(paths, started);
 
   if (options.pinOptions && gameDir !== null && path.resolve(gameDir) !== path.resolve(project.runDir)) {
@@ -453,7 +602,23 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     );
   }
 
-  await matchRequestedPixelSize(started, options.width, options.height, pixels, options.onProgress);
+  // The version out of the handshake, not the session's: an unpinned launch records the Maven
+  // range it asked for ('+'), and "this run used +" names nothing anyone can act on.
+  const modVersion = (hello as Record<string, unknown> | null)?.['clientDevBridgeVersion'];
+  await matchRequestedPixelSize(
+    started,
+    options.width,
+    options.height,
+    pixels,
+    typeof modVersion === 'string' ? modVersion : started.bridgeVersion,
+    options.onProgress,
+  );
+
+  // The client holds both ports itself now, so the claims that kept a concurrent launch off them
+  // while it booted have done their job. Released here rather than left to process exit, because
+  // `restart` and a batch run keep this process alive well past the launch.
+  claim.release();
+  jdwpClaim?.release();
 
   return { session: started, hello };
 }
@@ -600,7 +765,7 @@ async function waitForHandshake(
     );
   }
 
-  const dumped = await requestThreadDump();
+  const dumped = await requestThreadDump(session.port);
   // A port that was never reachable at all is the case that reads as "the client never started"
   // while the client is in fact running and listening -- it just bound an address this CLI did not
   // try. Naming the sockets that do exist turns that into a one-line diagnosis.
@@ -653,6 +818,8 @@ export async function matchRequestedPixelSize(
   width: number,
   height: number,
   observed: PixelSize | null,
+  /** The version the client reported, which is the one to name: the session may hold only `+`. */
+  modVersion: string,
   onProgress?: (line: string) => void,
 ): Promise<void> {
   if (observed === null || (observed.width === width && observed.height === height)) {
@@ -700,7 +867,7 @@ export async function matchRequestedPixelSize(
           `the ${width}x${height} that was asked for, and resizing it did not take` +
           `${failure === null ? '' : ` (${failure})`}. ${consequence} Update the ClientDevBridge mod ` +
           `build, which is what converts a size in pixels into a window (this run used ` +
-          `${session.bridgeVersion}).`,
+          `${modVersion}).`,
   );
 }
 
@@ -763,13 +930,19 @@ function isJavaProcess(pid: number): boolean {
  *
  * @return whether a dump was requested from at least one process
  */
-export async function requestThreadDump(): Promise<boolean> {
+export async function requestThreadDump(port: number): Promise<boolean> {
   let pids: number[];
   try {
+    // Matched on the port, not on the mod being enabled at all: every client on the machine
+    // carries the latter, so a launch that timed out here used to dump the threads of every other
+    // developer's -- or agent's -- healthy client too, burying their game log under a stack dump
+    // from a run that had nothing to do with them. The port is unique to this launch, and the
+    // property is on the client and on the Gradle process that forked it, which are both ours.
+    //
     // The `--` matters: the pattern starts with a dash, and without it pgrep reads it as options
     // and exits with "invalid option -- 'D'" -- which the catch below would quietly turn into
     // "no dump available", exactly when a dump is what is needed.
-    pids = execFileSync('pgrep', ['-f', '--', '-Dclientdevbridge.enabled=true'], { encoding: 'utf8' })
+    pids = execFileSync('pgrep', ['-f', '--', `-Dclientdevbridge.port=${port}`], { encoding: 'utf8' })
       .split('\n')
       .map((line) => Number(line.trim()))
       .filter((pid) => Number.isInteger(pid) && pid > 0);
@@ -850,7 +1023,7 @@ export function readTruncated(file: string): string {
 export async function stop(
   projectDir: string,
   port = DEFAULT_PORT,
-): Promise<{ stopped: boolean; wasStale: boolean; orphan: string | null; restoredOptions: string[] }> {
+): Promise<{ stopped: boolean; wasStale: boolean; orphan: string | null; restoredOptions: string[]; port: number }> {
   const status = readSession(projectDir);
   if (status.session === null) {
     // No session file, but something may still be holding the port: a client whose session.json
@@ -864,6 +1037,7 @@ export async function stop(
       wasStale: status.stale,
       orphan,
       restoredOptions: restorePinnedOptions(status.paths.optionsBackup),
+      port,
     };
   }
   if (status.stale) {
@@ -874,6 +1048,9 @@ export async function stop(
       wasStale: true,
       orphan,
       restoredOptions: restorePinnedOptions(status.paths.optionsBackup),
+      // The session's own port, not the caller's: with ports handed out as they come free, the
+      // one this client was on is the only one worth reporting an orphan for.
+      port: status.session.port,
     };
   }
 
@@ -896,7 +1073,7 @@ export async function stop(
   const restoredOptions = restorePinnedOptions(status.paths.optionsBackup);
 
   clearSession(status.paths);
-  return { stopped: true, wasStale: false, orphan: null, restoredOptions };
+  return { stopped: true, wasStale: false, orphan: null, restoredOptions, port: status.session.port };
 }
 
 /**
