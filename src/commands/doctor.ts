@@ -266,19 +266,23 @@ function resolveDependencies(
   javaHome: string | null,
 ): Check {
   const task = gradlePath === ':' ? ':dependencies' : `${gradlePath}:dependencies`;
-  const result = spawnSync(
-    wrapper,
-    ['--quiet', '--console=plain', task, '--configuration', 'compileClasspath'],
-    {
-      cwd: projectDir,
-      encoding: 'utf8',
-      timeout: 240_000,
-      env: { ...process.env, ...(javaHome === null ? {} : { JAVA_HOME: javaHome }) },
-    },
-  );
-  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+  const resolve = (): { output: string; error: Error | undefined; status: number | null } => {
+    const attempt = spawnSync(
+      wrapper,
+      ['--quiet', '--console=plain', task, '--configuration', 'compileClasspath'],
+      {
+        cwd: projectDir,
+        encoding: 'utf8',
+        timeout: 240_000,
+        env: { ...process.env, ...(javaHome === null ? {} : { JAVA_HOME: javaHome }) },
+      },
+    );
+    return { output: `${attempt.stdout ?? ''}${attempt.stderr ?? ''}`, error: attempt.error, status: attempt.status };
+  };
+  const first = resolve();
+  const output = first.output;
 
-  if (result.error !== undefined && (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
+  if (first.error !== undefined && (first.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
     // A warn, not an ok. Four minutes without resolving means the caches are cold, and a cold cache
     // is the single best predictor of a first `start` that takes 15-20 minutes -- which is the one
     // thing a first-time caller most needs to be told. Reported as `ok` beside genuinely fine
@@ -296,6 +300,24 @@ function resolveDependencies(
   // it and still exits 0. Reading only the status made this check pass on exactly the failure it
   // was written to catch -- green light, then a `start` that dies on "Username must not be null!".
   const unresolved = unresolvedModules(output);
+  if (unresolved.length > 0 && unresolved.every(isGeneratedMinecraft)) {
+    // Minecraft itself is not fetched from anywhere -- the loader plugin builds it on the first
+    // configuration and publishes it into a local repository. So the run that reports it missing
+    // is usually the run that creates it, and the next one finds it. Asking again is the only way
+    // to tell that apart from a Minecraft that genuinely cannot be produced, and it matters
+    // because the advice below -- credentials -- is useless for this one.
+    if (unresolvedModules(resolve().output).length === 0) {
+      return {
+        name: 'dependencies',
+        ok: true,
+        workedAround: true,
+        detail: `${unresolved.join(', ')} had to be generated first; it resolves now`,
+        fix: 'Nothing to do. A new Minecraft version is built locally the first time anything asks '
+          + 'for it, so the first resolve after a version bump reports it missing and the next '
+          + 'one does not.',
+      };
+    }
+  }
   if (unresolved.length > 0) {
     // The tree says which modules failed but never why: it prints no repository and no error. So
     // the fix names the usual cause without asserting it, and says how to get the real one --
@@ -313,7 +335,7 @@ function resolveDependencies(
     };
   }
 
-  if (result.status === 0) {
+  if (first.status === 0) {
     return { name: 'dependencies', ok: true, detail: 'the project resolves its compile classpath', fix: '' };
   }
 
@@ -353,6 +375,17 @@ function resolveDependencies(
  * It prints them as `+--- group:artifact:version FAILED` and then exits 0, so the annotation is the
  * only evidence there is.
  */
+/**
+ * Whether a module is the Minecraft the loader plugin generates rather than one it downloads.
+ *
+ * Loom and ModDevGradle both produce a Minecraft jar locally -- `net.minecraft:minecraft-merged-<hash>`
+ * and friends -- and publish it into a repository under the Gradle cache. Nothing fetches it, so
+ * "will not resolve" means "has not been built yet" rather than "cannot be reached".
+ */
+export function isGeneratedMinecraft(module: string): boolean {
+  return module.startsWith('net.minecraft:');
+}
+
 export function unresolvedModules(output: string): string[] {
   const failed = new Set<string>();
   for (const line of output.split('\n')) {

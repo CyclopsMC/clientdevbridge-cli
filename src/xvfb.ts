@@ -56,8 +56,16 @@ export function planDisplay(
     // A generous virtual screen: the client window is smaller, but resizing beyond the
     // screen (window.resize) would otherwise silently clamp.
     prefixArgs: ['-a', '-s', `-screen 0 ${Math.max(options.width, 1280)}x${Math.max(options.height, 800)}x24`],
-    env: { LIBGL_ALWAYS_SOFTWARE: '1' },
-    description: 'xvfb-run with Mesa llvmpipe',
+    env: {
+      LIBGL_ALWAYS_SOFTWARE: '1',
+      // Minecraft 26.3 replaced GLFW with SDL and asks for an sRGB-capable framebuffer. Xvfb with
+      // llvmpipe has no such GLX config -- not one of the 320 it offers -- so SDL answers
+      // "Couldn't find matching GLX visual", every render backend fails in turn, and the client
+      // dies before it opens a window. The same Mesa reaches sRGB through EGL, which is what this
+      // asks SDL to use. Earlier Minecrafts never read it.
+      SDL_VIDEO_FORCE_EGL: '1',
+    },
+    description: 'xvfb-run with Mesa llvmpipe (SDL on EGL)',
   };
 }
 

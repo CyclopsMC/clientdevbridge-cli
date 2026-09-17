@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { unresolvedModules } from '../src/commands/doctor.js';
+import { isGeneratedMinecraft, unresolvedModules } from '../src/commands/doctor.js';
 
 /**
  * `gradle dependencies` exits 0 whether or not the modules resolve.
@@ -48,5 +48,28 @@ describe('unresolved modules in a dependency tree', () => {
   it('are reported once even when a module fails under several parents', () => {
     const twice = 'a.b:c:1.0 FAILED\n|    \\--- a.b:c:1.0 FAILED\n';
     expect(unresolvedModules(twice)).toEqual(['a.b:c:1.0']);
+  });
+});
+
+/**
+ * A Minecraft that has not been built yet reads exactly like one that cannot be reached.
+ *
+ * Loom and ModDevGradle generate Minecraft locally and publish it into a repository under the
+ * Gradle cache, so the first resolve after a version bump reports it FAILED and creates it, and
+ * the next one finds it. Telling that apart from a real unresolvable dependency is what keeps
+ * `doctor` from sending someone after credentials they do not need -- a bump to 26.3 failed the
+ * fabric check on nothing worse than a cold cache.
+ */
+describe('isGeneratedMinecraft', () => {
+  it('recognises the Minecraft a loader plugin builds for itself', () => {
+    expect(isGeneratedMinecraft('net.minecraft:minecraft-merged-6974b2190e:26.3')).toBe(true);
+    expect(isGeneratedMinecraft('net.minecraft:minecraft-merged-deobf:26.3')).toBe(true);
+  });
+
+  it('does not excuse anything else', () => {
+    expect(isGeneratedMinecraft('org.cyclops.cyclopscore:cyclopscore-26.1.2-neoforge:1.29.5-1012')).toBe(false);
+    expect(isGeneratedMinecraft('net.neoforged:neoforge:26.3.0.3-beta')).toBe(false);
+    // Near miss: a group that merely starts the same way is not Minecraft.
+    expect(isGeneratedMinecraft('net.minecraftforge:srgutils:1.0.0')).toBe(false);
   });
 });
