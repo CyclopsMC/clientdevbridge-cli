@@ -1,16 +1,18 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.8.0"></a>
+## [v0.8.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.7.1...v0.8.0) - 2026-09-18
 
-### Fixed
+### Added
 * **A headless client can start on Minecraft 26.3.** 26.3 replaced GLFW with SDL and asks for an
   sRGB-capable framebuffer. Xvfb with Mesa's llvmpipe offers no such GLX config — not one of the
   320 it has — so SDL answered "Couldn't find matching GLX visual", every render backend failed in
   turn, and the client died before it opened a window. The same Mesa reaches sRGB through EGL, so
   a headless run now sets `SDL_VIDEO_FORCE_EGL`. Earlier Minecrafts never read it, so nothing else
   changes.
+
+### Fixed
 * **`doctor` no longer fails a project whose Minecraft has merely not been built yet.** Loom and
   ModDevGradle generate Minecraft locally rather than downloading it, so the first resolve after a
   version bump reports `net.minecraft:minecraft-merged-<hash>` FAILED *and creates it*, and the
