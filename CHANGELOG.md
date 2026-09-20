@@ -1,8 +1,8 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-<a name="Unreleased"></a>
-## Unreleased
+<a name="v0.9.0"></a>
+## [v0.9.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.8.0...v0.9.0) - 2026-09-20
 
 ### Added
 * **`start --particles`.** `start` pins `particles:2` for determinism, and at minimal
