@@ -36,6 +36,7 @@ export interface StartCommandOptions {
   readonly pinOptions: boolean;
   readonly gitignore: boolean;
   readonly toasts: boolean;
+  readonly particles: boolean;
   /** A port number, or true for `--jdwp-port` with no number, which means "any free one". */
   readonly jdwpPort?: string | boolean | undefined;
 }
@@ -74,6 +75,7 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     height: Number(options.height),
     evalEnabled: options.eval,
     toasts: options.toasts,
+    particles: options.particles,
     pinOptions: options.pinOptions,
     gitignore: options.gitignore,
     jdwpPort: options.jdwpPort === undefined
@@ -106,6 +108,10 @@ export async function runStart(global: GlobalOptions, options: StartCommandOptio
     ['toasts', hello['toastsEnabled'] === undefined
       ? 'unknown (this mod build does not report it)'
       : String(hello['toastsEnabled'])],
+    // From what was pinned rather than from the handshake: particles are an options.txt setting,
+    // so the mod has nothing to report and the CLI is the only thing that knows. Saying so matters
+    // because the default silently drops any particle a mod spawns without `force`.
+    ['particles', options.pinOptions ? String(options.particles) : 'not pinned (--no-pin-options)'],
     // Fabric loads its API as ~50 separate modules, which turns this into a wall of names that
     // says nothing. What a caller needs from it is whether the mod under test is loaded.
     ['mods', summariseMods(hello['mods'] as string[] | undefined)],

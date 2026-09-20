@@ -162,6 +162,42 @@ describe('pinOptions', () => {
     }
   });
 
+  /**
+   * `particles:2` is minimal, and `ClientLevel.doAddParticle` drops anything non-forced at that
+   * level — so a mod's own particle cannot be screenshotted through the path a real spawn takes.
+   * The workaround was `/particle <id> ... force`, which exercises the render path but skips the
+   * gate. `--particles` is the same escape hatch `--toasts` already provides.
+   */
+  it('minimises particles by default, because they animate', () => {
+    pinOptions(directory);
+    expect(fs.readFileSync(path.join(directory, 'options.txt'), 'utf8')).toContain('particles:2');
+  });
+
+  it('renders all particles when asked, so a mod can screenshot its own', () => {
+    pinOptions(directory, undefined, { particles: true });
+    expect(fs.readFileSync(path.join(directory, 'options.txt'), 'utf8')).toContain('particles:0');
+  });
+
+  it('pins particles on rather than leaving whatever was there', () => {
+    // Not "omit the key": a developer whose own options.txt says minimal, or a run left behind by
+    // a client that crashed before restoring, would otherwise get the default back while the flag
+    // said otherwise.
+    fs.writeFileSync(path.join(directory, 'options.txt'), 'particles:2\n');
+    const result = pinOptions(directory, undefined, { particles: true });
+    expect(result.changed).toContain('particles');
+    expect(fs.readFileSync(path.join(directory, 'options.txt'), 'utf8')).toContain('particles:0');
+  });
+
+  it('changes nothing else when particles are turned on', () => {
+    pinOptions(directory, undefined, { particles: true });
+    const written = fs.readFileSync(path.join(directory, 'options.txt'), 'utf8');
+    for (const [key, value] of Object.entries(DETERMINISM_OPTIONS)) {
+      if (key !== 'particles') {
+        expect(written).toContain(`${key}:${value}`);
+      }
+    }
+  });
+
   it('keeps unrelated settings a developer had set', () => {
     fs.writeFileSync(path.join(directory, 'options.txt'), 'lang:nl_nl\nguiScale:3\n');
     const result = pinOptions(directory);

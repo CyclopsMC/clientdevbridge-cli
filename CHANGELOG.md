@@ -1,6 +1,30 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="Unreleased"></a>
+## Unreleased
+
+### Added
+* **`start --particles`.** `start` pins `particles:2` for determinism, and at minimal
+  `ClientLevel.doAddParticle` drops anything not spawned with `force` — so a mod's own particle
+  could not be screenshotted through the path a real spawn takes, only through
+  `/particle <id> ... force`, which exercises the render path but skips the gate. The flag is the
+  same escape hatch `--toasts` already provides for the other thing determinism suppresses.
+
+### Fixed
+* **`doctor` checks for the EGL libraries an SDL-era client needs.** Minecraft 26.3 replaced GLFW
+  with SDL, but the GL preflight only looked at the Mesa DRI drivers — so a machine with
+  `libgl1-mesa-dri` and no `libEGL.so.1` was told "Everything checks out", and the client then
+  failed to create an OpenGL backend, failed to create a Vulkan one, and exited. Nothing in that
+  failure points back at the environment. The check names the missing libraries and the packages
+  to install, and only runs for versions that draw through SDL.
+* **`start` no longer reports a crash loop as healthy progress.** Liveness was "has the log grown",
+  and a client stuck in a crash loop rewrites the same stack trace for as long as it is given — so
+  a fatal `BackendCreationException` in the log read as a build worth waiting for, and `start`
+  spent its whole timeout before advising the caller to wait longer, with exit code 3 ("not ready
+  yet"). It now requires the log's last line to actually advance, and fails with the exception the
+  log already recorded rather than describing a death that has happened as one that has not.
+
 <a name="v0.8.0"></a>
 ## [v0.8.0](https://github.com/CyclopsMC/clientdevbridge-cli/compare/v0.7.1...v0.8.0) - 2026-09-18
 

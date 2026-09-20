@@ -137,6 +137,11 @@ restore it. `start --no-pin-options` skips the whole business.
 several seconds, so a screenshot taken near one is not reproducible. `start --toasts` turns them
 back on, for when the toast is the thing you are testing.
 
+**Particles are minimised**, and that one does more than dim the picture: at minimal,
+`ClientLevel.doAddParticle` drops any particle not spawned with `force`, so a mod's own particle
+cannot be screenshotted through the path a real spawn takes at all. `start --particles` renders
+them, for when the particle is the thing you are testing.
+
 **The cursor is part of the frame too**, and it is the one piece of that list which is live state
 rather than a setting: it draws a hover highlight, and some GUIs point a player model or an item at
 it. Every input command moves it, so two captures taken after different clicks differ for reasons
@@ -472,8 +477,13 @@ rendering, so screenshots show exactly what a player would see. Everywhere else,
 `--headed`, a normal window opens. Nothing else about the CLI's behaviour differs.
 
 ```bash
-sudo apt-get install -y xvfb libgl1-mesa-dri
+sudo apt-get install -y xvfb libgl1-mesa-dri libegl1 libegl-mesa0 libgles2
 ```
+
+The EGL packages are needed from Minecraft 26.3, which replaced GLFW with SDL and asks for an
+sRGB-capable framebuffer that Xvfb only offers through EGL. Without them a client with perfectly
+good software GL drivers still fails to create any render backend and exits with "Could not load
+EGL library"; earlier Minecraft versions do not need them.
 
 `clientdevbridge doctor` checks for all of this and prints the exact command to fix whatever is
 missing.

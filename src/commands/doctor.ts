@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
-import { ARTIFACT_LINES, artifactId, findLine, GROUP } from '../artifacts.js';
+import { ARTIFACT_LINES, artifactId, findLine, GROUP, usesSdl } from '../artifacts.js';
 import { declaredJavaVersion, detectLoaders, detectProject, projectPathOf, readGradleProperties } from '../detect.js';
 import { findJavaHome, gradleJava } from '../java.js';
 import { line, printJson } from '../output.js';
@@ -162,6 +162,13 @@ export async function collectChecks(
       detail: hasSoftwareGl ? `llvmpipe drivers present in ${driDir}` : `no swrast driver in ${driDir}`,
       fix: hasSoftwareGl ? '' : 'sudo apt-get install -y libgl1-mesa-dri mesa-utils',
     });
+
+    // Read here rather than through detectProject, which throws on a layout it cannot read: a
+    // version it could not work out is a reason to skip this check, not to fail the whole report.
+    const minecraftVersion = readGradleProperties(projectDir)['minecraft_version'];
+    if (minecraftVersion !== undefined && usesSdl(minecraftVersion)) {
+      checks.push(eglCheck(minecraftVersion));
+    }
   }
 
   if (hasWrapper) {
@@ -245,6 +252,64 @@ export async function collectChecks(
   }
 
   return checks;
+}
+
+/**
+ * Where a Linux distribution puts the shared libraries SDL loads by name at runtime.
+ *
+ * More than the one directory the driver check looks in, because unlike the Mesa DRI drivers these
+ * are ordinary libraries and a non-Debian layout puts them somewhere else entirely.
+ */
+const LIBRARY_DIRS: readonly string[] = [
+  `/usr/lib/${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}-linux-gnu`,
+  '/usr/lib64',
+  '/usr/lib',
+];
+
+/**
+ * The EGL libraries a client needs before it can open a window, and where each comes from.
+ *
+ * Two, because they fail differently. SDL dlopens `libEGL.so.1`, the vendor-neutral loader, and
+ * without it the client says "Could not load EGL library" and dies. With it but without a vendor
+ * behind it -- `libEGL_mesa.so.0`, the software one -- the load succeeds and initialising the
+ * display fails later instead. Neither is visible in the DRI drivers the check above looks at.
+ */
+export const EGL_LIBRARIES: readonly { readonly file: string; readonly pkg: string }[] = [
+  { file: 'libEGL.so.1', pkg: 'libegl1' },
+  { file: 'libEGL_mesa.so.0', pkg: 'libegl-mesa0' },
+];
+
+/** Which of {@link EGL_LIBRARIES} are not installed, in the order they would be reported. */
+export function missingEglLibraries(dirs: readonly string[] = LIBRARY_DIRS): string[] {
+  return EGL_LIBRARIES.filter(
+    (library) => !dirs.some((dir) => fs.existsSync(path.join(dir, library.file))),
+  ).map((library) => library.file);
+}
+
+/**
+ * Whether this machine has the EGL libraries an SDL-era client needs.
+ *
+ * Worth a check of its own because the failure it prevents looks like nothing to do with the
+ * environment: `doctor` said the software GL drivers were present and everything checked out, and
+ * then the client failed to create an OpenGL backend, failed to create a Vulkan one, and exited --
+ * all inside the game, in a log nobody reads until `start` has already timed out.
+ */
+function eglCheck(minecraftVersion: string, dirs: readonly string[] = LIBRARY_DIRS): Check {
+  const missing = missingEglLibraries(dirs);
+  return {
+    name: 'egl (SDL render backend)',
+    ok: missing.length === 0,
+    detail:
+      missing.length === 0
+        ? `${EGL_LIBRARIES.map((library) => library.file).join(' and ')} present`
+        : `${missing.join(' and ')} missing, and Minecraft ${minecraftVersion} draws through SDL`,
+    fix:
+      missing.length === 0
+        ? ''
+        : 'sudo apt-get install -y libegl1 libegl-mesa0 libgles2 -- without them the client cannot '
+          + 'create a render backend and exits with "Could not load EGL library", however good the '
+          + 'software GL drivers are.',
+  };
 }
 
 /**

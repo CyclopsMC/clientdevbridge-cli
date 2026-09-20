@@ -64,6 +64,7 @@ export interface StartOptions {
   readonly height: number;
   readonly evalEnabled: boolean;
   readonly toasts: boolean;
+  readonly particles: boolean;
   readonly pinOptions: boolean;
   readonly gitignore: boolean;
   /** A port, 'auto' to take a free one, or null for no debug port at all. */
@@ -464,7 +465,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
   );
 
   if (options.pinOptions) {
-    const result = pinOptions(project.runDir, paths.optionsBackup);
+    const result = pinOptions(project.runDir, paths.optionsBackup, { particles: options.particles });
     if (result.changed.length > 0) {
       options.onProgress?.(
         `Pinned determinism options in ${path.join(project.runDir, 'options.txt')} (changed: ${result.changed.join(', ')})`,
@@ -569,6 +570,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
       height: options.height,
       evalEnabled: options.evalEnabled,
       toasts: options.toasts,
+      particles: options.particles,
       pinOptions: options.pinOptions,
       gradleArgs: [...options.gradleArgs],
       timeoutMs: options.timeoutMs,
@@ -595,7 +597,7 @@ export async function start(options: StartOptions): Promise<{ session: Session; 
     // The guess was wrong, so this run is not pinned. Pin the directory the client actually named,
     // which is also what `detectRunDir` will find next time, and say so rather than let the next
     // screenshot comparison fail for a reason nothing points at.
-    pinOptions(gameDir, paths.optionsBackup);
+    pinOptions(gameDir, paths.optionsBackup, { particles: options.particles });
     options.onProgress?.(
       `The client runs in ${gameDir}, not ${project.runDir}. Pinned the determinism options there; ` +
         'restart to apply them to a running client.',
@@ -689,7 +691,64 @@ function diagnoseSilence(gradleLog: string): string {
   return '';
 }
 
-async function waitForHandshake(
+/**
+ * How long a log tail may stay identical before the build counts as stalled rather than slow.
+ *
+ * Sampled once per progress report, so this is four consecutive identical samples. A real build
+ * writes constantly -- Gradle task lines, then the resource reload, then mod loading -- and a
+ * minute of the exact same last line means whatever is writing is repeating itself.
+ */
+const STALLED_LOG_MS = 60_000;
+
+/**
+ * Lines that mean the client cannot start, however much longer it is given.
+ *
+ * Deliberately few. A Minecraft log is full of exceptions that do not matter -- a missing optional
+ * mod, a texture warning, a mixin that declined to apply -- so matching "an exception happened"
+ * would turn every healthy slow build into a false failure, which is the more expensive mistake.
+ * These three are each unambiguous: the renderer gave up, the JVM died, or the launcher threw.
+ */
+const FATAL_LOG_SIGNATURES: readonly RegExp[] = [
+  // Renderpearl, 26.3 and later: every backend it tried failed, so there is no window to render
+  // into. The usual cause on a headless machine is a missing EGL library, which `doctor` now checks.
+  /\bBackendCreationException\b/,
+  /^#\s*A fatal error has been detected by the Java Runtime Environment/,
+  /^Exception in thread "main"/,
+];
+
+/** How many fatal lines are worth quoting; the rest are repeats of the same failure. */
+const MAX_FATAL_LINES = 6;
+
+/**
+ * The fatal failures a game log records, or null when it records none.
+ *
+ * Exported for tests: the whole point is to recognise a real log, so the fixture is one.
+ */
+export function fatalStartupError(log: string): string | null {
+  const found: string[] = [];
+  for (const raw of log.split('\n')) {
+    const line = raw.trim();
+    if (line.length === 0 || found.includes(line)) {
+      continue;
+    }
+    if (FATAL_LOG_SIGNATURES.some((signature) => signature.test(line))) {
+      found.push(line);
+      if (found.length === MAX_FATAL_LINES) {
+        break;
+      }
+    }
+  }
+  return found.length === 0 ? null : found.join('\n');
+}
+
+/**
+ * Waits for the client to answer, and decides what a wait that ran out actually means.
+ *
+ * Exported for tests: the decision at the end is the whole point of it, and the failure it now
+ * catches -- a client that crash-looped for the whole timeout while `start` called it healthy --
+ * cannot be reproduced by booting Minecraft on a machine where Minecraft works.
+ */
+export async function waitForHandshake(
   session: Session,
   gradleLog: string,
   timeoutMs: number,
@@ -706,6 +765,13 @@ async function waitForHandshake(
   // one that has wedged does not. That difference is what separates "give it longer" from
   // "something is wrong", and without it every slow first build looked like a failure.
   const logSizeAtStart = fileSize(gradleLog);
+  // Bytes are not progress. A client stuck in a crash loop rewrites the same stack trace for as
+  // long as it is given, so the log grows steadily while nothing whatsoever advances -- and the
+  // size test alone read that as a healthy build and told the caller to keep waiting. What the
+  // last line *says* is the signal; it is sampled with the progress report rather than on every
+  // poll because reading the tail means reading up to ten megabytes.
+  let lastTail = '';
+  let lastAdvanceAt = Date.now();
 
   while (Date.now() < deadline) {
     if (!isProcessAlive(session.pid)) {
@@ -742,21 +808,46 @@ async function waitForHandshake(
     }
     if (Date.now() - lastReport > 15_000) {
       lastReport = Date.now();
-      onProgress?.(`Still starting... (${Math.round((Date.now() - (deadline - timeoutMs)) / 1000)}s) ${lastGradleLine(gradleLog)}`);
+      const tail = lastGradleLine(gradleLog);
+      if (tail !== lastTail) {
+        lastTail = tail;
+        lastAdvanceAt = Date.now();
+      }
+      onProgress?.(`Still starting... (${Math.round((Date.now() - (deadline - timeoutMs)) / 1000)}s) ${tail}`);
     }
     await delay(500);
   }
 
-  // A client that never answers is blocked on something, and the log cannot say what: it simply
-  // stops. Ask the JVM for a thread dump before giving up, so the render thread's stack lands in
-  // the game log where whoever debugs this will look.
-  // Before treating this as a failure: is it one? A cold NeoGradle cache takes fifteen to twenty
-  // minutes to produce a client -- neoFormRecompile alone compiles five thousand sources -- and the
-  // wait above expires long before that with the build perfectly healthy. Saying "the client did
-  // not answer, increase --timeout" there describes a death that has not happened.
-  if (isProcessAlive(session.pid) && fileSize(gradleLog) > logSizeAtStart) {
+  // The wait is over and the client never answered. Which of three quite different things that is
+  // -- already dead, wedged, or merely slow -- is decided below, in that order, because each
+  // answer makes the next question meaningless.
+
+  // Dead. A fatal error makes everything else moot: the process may still be alive and the log may
+  // still be growing, and telling someone to wait longer for a client that has already failed to
+  // create a render backend costs them the whole timeout and then sends them looking in the wrong
+  // place.
+  const fatal = fatalStartupError(readTruncated(gradleLog));
+  if (fatal !== null) {
+    throw new SessionError(
+      `The client failed to start:\n${fatal}\n` +
+        `This was in the log before the ${Math.round(timeoutMs / 1000)}s wait expired, so waiting ` +
+        'longer would not have helped.',
+      `The full log is at ${gradleLog}.` +
+        (/\bBackendCreationException\b/.test(fatal)
+          ? ' A client that cannot create any render backend is usually missing its GL libraries: ' +
+            "run `clientdevbridge doctor`, which checks for them."
+          : ''),
+    );
+  }
+
+  // Merely slow, which is not a failure and must not be reported as one. A cold NeoGradle cache
+  // takes fifteen to twenty minutes to produce a client -- neoFormRecompile alone compiles five
+  // thousand sources -- and the wait expires long before that with the build perfectly healthy.
+  // The log having *moved*, rather than merely grown, is what separates it from a crash loop.
+  const stalled = Date.now() - lastAdvanceAt >= STALLED_LOG_MS;
+  if (isProcessAlive(session.pid) && fileSize(gradleLog) > logSizeAtStart && !stalled) {
     throw new NotReadyError(
-      `The client is still starting: Gradle is running and has written to the log throughout the ` +
+      `The client is still starting: Gradle is running and the log has kept moving throughout the ` +
         `${Math.round(timeoutMs / 1000)}s wait, so nothing has failed.\n` +
         `Currently: ${lastGradleLine(gradleLog)}\n` +
         `A first build on a machine with no toolchain cache takes 15-20 minutes.`,
@@ -765,6 +856,9 @@ async function waitForHandshake(
     );
   }
 
+  // Wedged, or something this cannot name. The log cannot say what a blocked client is waiting on
+  // -- it simply stops -- so ask the JVM for a thread dump before giving up, and the render
+  // thread's stack lands in the game log where whoever debugs this will look.
   const dumped = await requestThreadDump(session.port);
   // A port that was never reachable at all is the case that reads as "the client never started"
   // while the client is in fact running and listening -- it just bound an address this CLI did not
@@ -773,6 +867,13 @@ async function waitForHandshake(
   throw new SessionError(
     `The client did not answer on port ${session.port} within ${Math.round(timeoutMs / 1000)}s.\n` +
       `Reached the port ${attempts} time(s); last time, ${lastObservation}.\n` +
+      // Said explicitly because it is the difference between a build worth waiting for and one
+      // that is not, and the tail below looks the same either way.
+      (stalled
+        ? `The log stopped advancing ${Math.round((Date.now() - lastAdvanceAt) / 1000)}s ago -- it ` +
+          'may still be growing, but every line since has been the same one, so this is not a slow ' +
+          'build.\n'
+        : '') +
       diagnoseSilence(gradleLog) +
       (listeners === null ? '' : `Sockets listening on that port: ${listeners}\n`) +
       tailFile(gradleLog, 25),

@@ -306,7 +306,23 @@ export function restorePinnedOptions(backupFile: string): string[] {
  *
  * Keys the caller did not ask about are preserved, so a hand-tuned dev options file survives.
  */
-export function pinOptions(runDir: string, backupFile?: string): PinResult {
+export interface PinOptionsOptions {
+  /**
+   * Whether particles should render.
+   *
+   * Off by default, and pinned rather than merely left alone when asked for: `particles:2` is
+   * minimal, which makes `ClientLevel.doAddParticle` drop anything not spawned with `force`, so a
+   * mod's own particle cannot be screenshotted through the path a real spawn takes. Pinning `0`
+   * rather than removing the key means the answer does not depend on whatever the developer's own
+   * options.txt happened to say.
+   */
+  readonly particles?: boolean | undefined;
+}
+
+/** What `particles` is pinned to: 0 renders all of them, 2 is minimal. */
+const PARTICLES_ALL = '0';
+
+export function pinOptions(runDir: string, backupFile?: string, options: PinOptionsOptions = {}): PinResult {
   const optionsFile = path.join(runDir, 'options.txt');
   fs.mkdirSync(runDir, { recursive: true });
 
@@ -331,8 +347,13 @@ export function pinOptions(runDir: string, backupFile?: string): PinResult {
     }
   }
 
+  const wanted: Record<string, string> = {
+    ...DETERMINISM_OPTIONS,
+    ...(options.particles === true ? { particles: PARTICLES_ALL } : {}),
+  };
+
   const changed: string[] = [];
-  for (const [key, value] of Object.entries(DETERMINISM_OPTIONS)) {
+  for (const [key, value] of Object.entries(wanted)) {
     if (existing.get(key) !== value) {
       if (existing.has(key)) {
         changed.push(key);

@@ -46,6 +46,37 @@ export const ARTIFACT_LINES: readonly ArtifactLine[] = [
   { branch: 'master-26', minecraftVersions: ['26.2'], matches: /^26\./ },
 ];
 
+/** The first Minecraft that renders through SDL instead of GLFW. */
+const FIRST_SDL_VERSION = [26, 3];
+
+/**
+ * Whether this Minecraft draws through SDL rather than GLFW.
+ *
+ * 26.3 replaced GLFW with SDL, and with it the library a machine must have before the client can
+ * create any render backend at all: EGL rather than GLX. That is the difference between a headless
+ * machine that works and one that does not, and nothing else in the environment shows it -- the
+ * software GL drivers can be installed and correct and the client still dies in its own renderer.
+ *
+ * An unrecognisable version answers false. The question is only ever asked to decide whether to
+ * warn about a missing library, and warning about one a caller does not need is worse than
+ * staying quiet: `start` fails with the real error either way.
+ */
+export function usesSdl(minecraftVersion: string): boolean {
+  const parts = minecraftVersion.split('.').map((part) => Number.parseInt(part, 10));
+  if (parts.length === 0 || parts.some((part) => Number.isNaN(part))) {
+    return false;
+  }
+  for (const [index, required] of FIRST_SDL_VERSION.entries()) {
+    // A version shorter than the one it is compared against -- "26" against 26.3 -- is the older
+    // of the two, because the missing component is zero.
+    const part = parts[index] ?? 0;
+    if (part !== required) {
+      return part > required;
+    }
+  }
+  return true;
+}
+
 export function findLine(minecraftVersion: string): ArtifactLine | undefined {
   return ARTIFACT_LINES.find(
     (line) => line.minecraftVersions.includes(minecraftVersion) || line.matches.test(minecraftVersion),
